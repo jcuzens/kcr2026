@@ -163,14 +163,17 @@ main { padding: 12px 14px 60px; max-width: 900px; }
   <div class="updated" id="updatedLine"><svg class="ring" width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><circle class="ring-track" cx="7" cy="7" r="6"></circle><circle class="ring-fg" cx="7" cy="7" r="6"></circle></svg><span id="updatedText"></span></div>
   <div class="feedline down" id="feedLine"></div>
   <div class="actions">
-    <button id="filtersBtn">Filters</button>
-    <button id="scopeBtn" disabled>My classes</button>
-    <button id="doneBtn">Hide done</button>
-    <button id="themeBtn">Dark</button>
-    <button class="primary" id="printBtn">Print</button>
-    <button id="copyBtn">Copy link</button>
-    <button id="clearBtn">Clear</button>
-    <button id="paceBtn" disabled>Reset pace</button>
+    <button id="actionsToggle" class="acts-toggle" aria-expanded="true" aria-controls="actsBtns" title="Show/hide buttons"><span class="acts-chev">▾</span></button>
+    <div class="acts-btns" id="actsBtns">
+      <button id="filtersBtn">Filters</button>
+      <button id="scopeBtn" disabled>My classes</button>
+      <button id="doneBtn">Hide done</button>
+      <button id="themeBtn">Dark</button>
+      <button class="primary" id="printBtn">Print</button>
+      <button id="copyBtn">Copy link</button>
+      <button id="clearBtn">Clear</button>
+      <button id="paceBtn" disabled>Reset pace</button>
+    </div>
   </div>
 </header>
 <div id="layout">
@@ -194,7 +197,7 @@ const state = {trainer:new Set(), rider:new Set(), horse:new Set(), owner:new Se
 const search = {trainer:"", rider:"", horse:"", owner:"", division:""};
 const openCls = new Set();
 const dayState = {};
-const view = { filtersOpen: null, scope: false, doneHidden: false, theme: null };
+const view = { filtersOpen: null, scope: false, doneHidden: false, theme: null, actionsOpen: null };
 (function loadView(){
   try {
     const v = JSON.parse(localStorage.getItem(VIEW_KEY) || "null");
@@ -203,6 +206,7 @@ const view = { filtersOpen: null, scope: false, doneHidden: false, theme: null }
       view.scope = v.scope != null ? !!v.scope : !!v.context;   // v.context: legacy key
       view.doneHidden = !!v.doneHidden;
       view.theme = (v.theme === "dark" || v.theme === "light") ? v.theme : null;
+      if (typeof v.actionsOpen === "boolean") view.actionsOpen = v.actionsOpen;
     }
   } catch(e){}
 })();
@@ -229,6 +233,7 @@ function norm(s){ return (s||"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim()
 
 // ---- pure helpers (unit-tested)
 function defaultFiltersOpen(w){ return w >= 900; }
+function defaultActionsOpen(w){ return w >= 900; }
 const MONTHS = {January:0, February:1, March:2, April:3, May:4, June:5, July:6, August:7, September:8, October:9, November:10, December:11};
 function isPastDay(dayStr, now){
   now = now || new Date();
@@ -679,6 +684,13 @@ function applyFiltersOpen(){
   document.body.classList.toggle("nofilters", !open);
   $("#filtersBtn").classList.toggle("on", open);
 }
+function applyActionsOpen(){
+  const open = view.actionsOpen == null ? defaultActionsOpen(window.innerWidth) : view.actionsOpen;
+  $("#actions").classList.toggle("collapsed", !open);
+  const t = $("#actionsToggle");
+  t.classList.toggle("on", open);
+  t.setAttribute("aria-expanded", open ? "true" : "false");
+}
 function applyDoneBtn(){
   const b = $("#doneBtn");
   b.textContent = view.doneHidden ? "Show done" : "Hide done";
@@ -707,6 +719,10 @@ $("#themeBtn").addEventListener("click", () => {
 $("#filtersBtn").addEventListener("click", () => {
   view.filtersOpen = !(view.filtersOpen == null ? defaultFiltersOpen(window.innerWidth) : view.filtersOpen);
   saveView(); applyFiltersOpen();
+});
+$("#actionsToggle").addEventListener("click", () => {
+  view.actionsOpen = $("#actions").classList.contains("collapsed");
+  saveView(); applyActionsOpen();
 });
 $("#doneBtn").addEventListener("click", () => { view.doneHidden = !view.doneHidden; saveView(); applyDoneBtn(); renderSchedule(); });
 $("#scopeBtn").addEventListener("click", () => { view.scope = !view.scope; saveView(); applyScopeBtn(); renderSchedule(); });
@@ -935,6 +951,7 @@ function scheduleTick(){
 const src = load();
 renderFilters();
 applyFiltersOpen();
+applyActionsOpen();
 applyDoneBtn();
 applyScopeBtn();
 applyTheme();
