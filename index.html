@@ -200,7 +200,7 @@ const state = {trainer:new Set(), rider:new Set(), horse:new Set(), owner:new Se
 const search = {trainer:"", rider:"", horse:"", owner:"", division:""};
 const openCls = new Set();
 const dayState = {};
-const view = { filtersOpen: null, scope: false, doneHidden: false, theme: null, actionsOpen: null };
+const view = { filtersOpen: null, scope: false, doneHidden: false, theme: null, actionsOpen: null, tz: "local" };
 (function loadView(){
   try {
     const v = JSON.parse(localStorage.getItem(VIEW_KEY) || "null");
@@ -210,6 +210,7 @@ const view = { filtersOpen: null, scope: false, doneHidden: false, theme: null, 
       view.doneHidden = !!v.doneHidden;
       view.theme = (v.theme === "dark" || v.theme === "light") ? v.theme : null;
       if (typeof v.actionsOpen === "boolean") view.actionsOpen = v.actionsOpen;
+      view.tz = (v.tz === "show" || v.tz === "local") ? v.tz : "local";
     }
   } catch(e){}
 })();
