@@ -619,30 +619,32 @@ function makeClass(c, isMatch, hotNum, pinNum, shifts){
   const head = el("button","cls-head");
   head.appendChild(el("span","cnum", c.n));
   head.appendChild(el("span","cname", c.name));
-  if (isDone(c)) head.appendChild(el("span","cdone","done ✓"));
+  const meta = el("span","cmeta");
+  if (isDone(c)) meta.appendChild(el("span","cdone","done ✓"));
   const pill = classPill(c, Date.now(), hotNum, shifts);
   if (pill){
     const p = el("span", pill.tag, pill.text);
     if (pill.title) p.title = pill.title;
-    head.appendChild(p);
+    meta.appendChild(p);
   }
   if (c.live != null){
     const lv = el("span","clive");
     lv.appendChild(el("span","clivedot"));
     lv.appendChild(document.createTextNode("live"));
-    head.appendChild(lv);
+    meta.appendChild(lv);
   }
   if (!isDone(c) && c.ps != null){
     const hh = el("span","chere" + (c.n === pinNum ? " on" : ""), "here");
     hh.title = c.n === pinNum ? "The clock runs from this class \u2014 use Reset pace to clear" : "Pace the schedule from this class";
     hh.addEventListener("click", ev => { ev.stopPropagation(); setPin(c.n); });
-    head.appendChild(hh);
+    meta.appendChild(hh);
   }
-  head.appendChild(el("span","cdiv", c.div));
+  meta.appendChild(el("span","cdiv", c.div));
   const call = canToggle ? el("span","call") : null;
-  if (call) head.appendChild(call);
+  if (call) meta.appendChild(call);
   const count = el("span","ccount");
-  head.appendChild(count);
+  meta.appendChild(count);
+  head.appendChild(meta);
   head.appendChild(el("span","chev","▶"));
   d.appendChild(head);
   const box = el("div","cls-entries");
@@ -939,8 +941,8 @@ function refreshStatus(){
     if (cur) cur.remove();
     const p = el("span", want.tag, want.text);
     if (want.title) p.title = want.title;
-    const head = card.querySelector(".cls-head");
-    head.insertBefore(p, head.querySelector(".clive") || head.querySelector(".chere") || head.querySelector(".cdiv"));
+    const meta = card.querySelector(".cmeta");
+    meta.insertBefore(p, meta.querySelector(".clive") || meta.querySelector(".chere") || meta.querySelector(".cdiv"));
   }
 }
 function scheduleTick(){
