@@ -171,6 +171,7 @@ main { padding: 12px 14px 60px; max-width: 900px; }
       <button id="scopeBtn" disabled>My classes</button>
       <button id="doneBtn">Hide done</button>
       <button id="themeBtn">Dark</button>
+      <button id="tzBtn">KC time</button>
       <button class="primary" id="printBtn">Print</button>
       <button id="copyBtn">Copy link</button>
       <button id="clearBtn">Clear</button>
@@ -248,12 +249,60 @@ function isPastDay(dayStr, now){
   return d < t;
 }
 function isDone(c){ return c.e.some(e => e[6] != null); }
+// ---- display time zones: the default is the viewer's local zone; the "KC
+// time" toggle switches every time on the page to the show's zone (SHOW.tz).
+// The payload's times are naive show-local wall clocks (asof, session time) or
+// absolute epoch seconds (ps/pe); all display goes through these helpers so a
+// single mode flip re-renders everything. The page never names the zone beyond
+// the toggle.
+function activeTz(){ return view.tz === "show" ? SHOW.tz : null; }
+function wallToEpoch(y, mo0, d, hh, mm){
+  // Interpret a show-local wall clock as an instant in SHOW.tz -> epoch ms.
+  // The two-pass offset lookup converges across a DST transition.
+  const guess = Date.UTC(y, mo0, d, hh, mm, 0);
+  function offAt(ms){
+    const o = {};
+    for (const x of new Intl.DateTimeFormat("en-US", {timeZone: SHOW.tz,
+      year:"numeric",month:"numeric",day:"numeric",hour:"2-digit",
+      minute:"2-digit",second:"2-digit",hourCycle:"h23"}).formatToParts(new Date(ms)))
+      o[x.type] = x.value;
+    return Date.UTC(+o.year, +o.month - 1, +o.day, +o.hour, +o.minute, +o.second) - ms;
+  }
+  try { let e = guess - offAt(guess); return guess - offAt(e); }
+  catch(err){ return guess; }   // no Intl zone support: treat the wall clock as UTC
+}
+function _dtfParts(ms, extra){
+  const o = Object.assign({hour:"numeric", minute:"2-digit", hour12:true}, extra);
+  const tz = activeTz();
+  if (tz != null) o.timeZone = tz;
+  const o2 = {};
+  for (const x of new Intl.DateTimeFormat("en-US", o).formatToParts(new Date(ms))) o2[x.type] = x.value;
+  return o2;
+}
+function fmtClock(ms){
+  try { const p = _dtfParts(ms, {}); return p.hour + ":" + p.minute + " " + p.dayPeriod; }
+  catch(e){ return ""; }
+}
+function fmtDateTime(ms){
+  try {
+    const p = _dtfParts(ms, {month:"short", day:"numeric", year:"numeric"});
+    return p.month + " " + p.day + ", " + p.year + " · " + p.hour + ":" + p.minute + " " + p.dayPeriod;
+  } catch(e){ return ""; }
+}
+function sessionEpoch(c){
+  // the session slot (day + time-of-day, a show-local wall clock) -> epoch ms
+  const dm = String(c.day).match(/^(\w+) (\d{1,2})$/);
+  const tm = String(c.time).match(/^(\d{1,2}):(\d{2})\s*([ap])\.?m\.?$/i);
+  if (!dm || MONTHS[dm[1]] == null || !tm) return null;
+  let hh = (+tm[1]) % 24; const mm = +tm[2]; const ap = tm[3].toLowerCase();
+  if (ap === "p" && hh < 12) hh += 12;
+  if (ap === "a" && hh === 12) hh = 0;
+  return wallToEpoch(SHOW.year, MONTHS[dm[1]], +dm[2], hh, mm);
+}
 function fmtAsof(s){
   const m = String(s).match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/);
   if (!m) return s;
-  const MON = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-  const h = +m[4];
-  return MON[+m[2]-1] + " " + (+m[3]) + ", " + m[1] + " · " + (h % 12 || 12) + ":" + m[5] + " " + (h < 12 ? "AM" : "PM");
+  return fmtDateTime(wallToEpoch(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]));
 }
 
 // ---- build name indexes
@@ -402,12 +451,7 @@ function upNextCls(classes, nowMs, shifts){
 function isPendingCls(c, nowMs, shifts){
   return !isDone(c) && c.pe != null && nowMs >= c.pe * 1000 + (shifts && shifts[c.n] || 0);
 }
-const SHOW_TZ = SHOW.tz;
-function fmtShowTime(epochSec){
-  try {
-    return new Intl.DateTimeFormat("en-US", {timeZone: SHOW_TZ, hour: "numeric", minute: "2-digit"}).format(new Date(epochSec * 1000));
-  } catch(e){ return ""; }
-}
+function fmtShowTime(epochSec){ return fmtClock(epochSec * 1000); }
 // {tag, text, title, clsNow} for a card's predicted-status pill; null when
 // the card has none (done classes, or a future class outside its window).
 function classPill(c, nowMs, hotNum, shifts){
@@ -560,7 +604,12 @@ function renderSchedule(){
       dShown += matched.length;
       dRendered += vis.length;
       const sEl = el("div","session");
-      sEl.appendChild(el("h3",null, per + (cls[0].time ? " · " + cls[0].time : "")));
+      let sessTime = "";
+      if (cls[0].time){
+        const se = sessionEpoch(cls[0]); const cl = se != null ? fmtClock(se) : "";
+        sessTime = " · " + (cl || cls[0].time);   // raw fallback if the zone is unknown
+      }
+      sEl.appendChild(el("h3",null, per + sessTime));
       for (const c of vis.slice().sort((a,b)=>parseFloat(a.n)-parseFloat(b.n))){
         const m = matched.includes(c);
         rendered++;
@@ -581,7 +630,7 @@ function renderSchedule(){
   if (sub){
     const parts = FIELDS.filter(f=>state[f.key].size).map(f=>f.label+": "+[...state[f.key]].map(k=>namesDisp(f.key,k)).join(", "));
     if (state.division.size) parts.push("Divisions: "+[...state.division].map(k=>DIVS[k]).join(", "));
-    sub.textContent = (parts.join("  ·  ") || "Full schedule") + "  —  generated " + DATA.asof;
+    sub.textContent = (parts.join("  ·  ") || "Full schedule") + "  —  generated " + fmtAsof(DATA.asof);
   }
 }
 function namesDisp(key,k){ const m = NAMES[key] && NAMES[key][k]; return m ? m.d : k; }
@@ -718,9 +767,26 @@ function applyTheme(){
   b.textContent = dark ? "Light" : "Dark";
   b.classList.toggle("on", dark);
 }
+function applyTzMode(){
+  const b = $("#tzBtn");
+  if (!b) return;
+  const show = view.tz === "show";
+  b.textContent = show ? "My time" : "KC time";
+  b.classList.toggle("on", show);
+  b.title = show ? "Times shown in Kansas City (show) time — switch to your local time"
+                 : "Times shown in your local time — switch to Kansas City (show) time";
+}
+function setTzMode(m){
+  if (m === "show" || m === "local") view.tz = m;
+  return view.tz;
+}
 $("#themeBtn").addEventListener("click", () => {
   view.theme = document.documentElement.classList.contains("dark") ? "light" : "dark";
   saveView(); applyTheme();
+});
+$("#tzBtn").addEventListener("click", () => {
+  view.tz = view.tz === "show" ? "local" : "show";
+  saveView(); applyTzMode(); renderSchedule(); setUpdatedLine(DATA.asof, pollsFailed >= 3);
 });
 $("#filtersBtn").addEventListener("click", () => {
   view.filtersOpen = !(view.filtersOpen == null ? defaultFiltersOpen(window.innerWidth) : view.filtersOpen);
@@ -961,6 +1027,7 @@ applyActionsOpen();
 applyDoneBtn();
 applyScopeBtn();
 applyTheme();
+applyTzMode();
 setUpdatedLine(DATA.asof, false);
 renderFeedLine();
 renderSchedule();
