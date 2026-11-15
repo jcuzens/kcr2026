@@ -84,7 +84,7 @@ main { padding: 12px 14px 60px; max-width: 900px; }
 .day.collapsed .dchev { transform: rotate(0deg); }
 .day.collapsed .day-body { display: none; }
 .session h3 { font-size: 13.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--gold); margin: 12px 0 6px; }
-.cls { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; margin-bottom: 8px; overflow: hidden; }
+.cls { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; margin-bottom: 8px; overflow: hidden; transition: background-color .3s ease, border-color .3s ease; }
 .cls.muted { opacity: .55; border-style: dashed; }
 .cls.done { background: var(--done-bg); border-color: var(--done-border); }
 .cls.done .cls-head { background: transparent; }
@@ -96,6 +96,10 @@ main { padding: 12px 14px 60px; max-width: 900px; }
 .clivedot { width: 6px; height: 6px; border-radius: 50%; background: var(--gold); animation: clivepulse 2s ease-in-out infinite; }
 @keyframes clivepulse { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
 @media (prefers-reduced-motion: reduce) { .clivedot { animation: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .cls, .cls-entries { transition: none; }
+  .erow-new { animation: none; }
+}
 .cls-head { width: 100%; display: grid; grid-template-columns: auto 1fr auto; align-items: baseline; column-gap: 8px; row-gap: 7px; padding: 10px 12px; border: none; background: var(--surface); font: inherit; color: var(--ink); text-align: left; cursor: pointer; }
 .cls-head:active { background: var(--accent-soft); }
 .cnum { font-weight: 700; color: var(--accent); flex: none; font-size: 13.5px; min-width: 34px; grid-column: 1; grid-row: 1; }
@@ -115,8 +119,9 @@ main { padding: 12px 14px 60px; max-width: 900px; }
 .cbell.on { background: #f59e0b; border-color: #f59e0b; color: #fff; font-weight: 600; }
 .chev { flex: none; color: var(--muted); font-size: 11px; transition: transform .15s; grid-column: 3; grid-row: 1; }
 .cls.open .chev { transform: rotate(90deg); }
-.cls-entries { display: none; border-top: 1px solid var(--line); }
-.cls.open .cls-entries { display: block; }
+.cls-entries { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .18s ease; }
+.cls-entries-inner { overflow: hidden; min-height: 0; }
+.cls.open .cls-entries { grid-template-rows: 1fr; border-top: 1px solid var(--line); }
 .erow { display: grid; grid-template-columns: 40px 1fr; gap: 2px 8px; padding: 7px 12px; border-bottom: 1px solid var(--line); font-size: 13.5px; }
 .erow:last-child { border-bottom: none; }
 .erow .eentry { grid-row: span 2; align-self: start; color: var(--muted); font-size: 12px; padding-top: 1px; }
@@ -129,6 +134,8 @@ main { padding: 12px 14px 60px; max-width: 900px; }
 .erow.other .eppl .place { color: var(--gold); font-weight: 600; }
 .erow.scratch { background: var(--scratch-bg); }
 .erow.scratch .eentry b, .erow.scratch .ehorse, .erow.scratch .eppl { color: var(--scratch-ink); text-decoration: line-through; }
+.erow-new { animation: placeflash 1.6s ease-out; }
+@keyframes placeflash { from { background-color: var(--now-bg); } }
 .eother { display: inline-block; margin-left: 6px; padding: 0 6px; border: 1px solid var(--line); background: var(--surface); border-radius: 9px; font-size: 10.5px; line-height: 1.5; color: var(--muted); vertical-align: 1px; }
 .footnote { color: var(--muted); font-size: 12px; text-align: center; margin-top: 30px; }
 #toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: var(--toast-bg); color: var(--toast-ink); padding: 8px 16px; border-radius: 8px; font-size: 13px; opacity: 0; pointer-events: none; transition: opacity .25s; z-index: 50; }
@@ -595,6 +602,15 @@ function classPill(c, nowMs, hotNum, shifts){
 // ---- rendering
 const $ = s => document.querySelector(s);
 function el(tag, cls, txt){ const n = document.createElement(tag); if (cls) n.className = cls; if (txt!=null) n.textContent = txt; return n; }
+// places present in the payload shown right now, keyed "num:entryIdx"; the
+// next data re-render flashes rows that are newly placed (.erow-new). Set by
+// applyDataUpdate only, so filter/pin re-renders never flash.
+let prevPlaces = null;
+function placeKeySet(classes){
+  const s = new Set();
+  for (const c of classes) c.e.forEach((e, i) => { if (e[6] != null) s.add(c.n + ":" + i); });
+  return s;
+}
 
 function renderFilters(){
   const aside = $("#filters");
@@ -775,6 +791,7 @@ function makeClass(c, isMatch, hotNum, pinNum, shifts){
     for (const e of sortE(entries)){
       const other = on && !eMatches(e);
       const row = el("div","erow" + (other ? " other" : "") + (scr.has(e[0]) ? " scratch" : ""));
+      if (e[6] != null && prevPlaces && !prevPlaces.has(c.n + ":" + c.e.indexOf(e))) row.classList.add("erow-new");
       const en = el("span","eentry");
       en.innerHTML = e[0] ? "<b>"+e[0]+"</b>" : "—";
       row.appendChild(en);
@@ -830,6 +847,8 @@ function makeClass(c, isMatch, hotNum, pinNum, shifts){
   head.appendChild(el("span","chev","▶"));
   d.appendChild(head);
   const box = el("div","cls-entries");
+  const inner = el("div","cls-entries-inner");
+  box.appendChild(inner);
   d.appendChild(box);
   const refreshHead = () => {
     if (canToggle){
@@ -839,18 +858,18 @@ function makeClass(c, isMatch, hotNum, pinNum, shifts){
       count.textContent = c.e.length + " entries";
     }
   };
-  const build = () => { box.textContent = ""; buildRows(box, (showFiltered && !showingAll) ? visE : c.e); };
+  const build = () => { inner.textContent = ""; buildRows(inner, (showFiltered && !showingAll) ? visE : c.e); };
   const shouldOpen = (on && isMatch) || openCls.has(c.n);
   if (shouldOpen){ d.classList.add("open"); build(); }
   head.addEventListener("click", () => {
-    if (!d.classList.contains("open") && !box.firstChild) build();
+    if (!d.classList.contains("open") && !inner.firstChild) build();
     d.classList.toggle("open");
     d.classList.contains("open") ? openCls.add(c.n) : openCls.delete(c.n);
   });
   if (call) call.addEventListener("click", ev => {
     ev.stopPropagation();
     showingAll = !showingAll;
-    if (box.firstChild) build();
+    if (inner.firstChild) build();
     refreshHead();
   });
   refreshHead();
@@ -1016,6 +1035,7 @@ function restoreSearch(){
 }
 function applyDataUpdate(p){
   liveRaw = JSON.stringify(p);
+  prevPlaces = placeKeySet(DATA);   // rows newly placed in p get the flash class
   const x = window.scrollX || 0, y = window.scrollY || 0;
   const aside = $("#filters");
   const asy = aside ? (aside.scrollTop || 0) : 0;
@@ -1028,6 +1048,7 @@ function applyDataUpdate(p){
   renderFilters();
   restoreSearch();
   renderSchedule();
+  prevPlaces = null;   // flash is a one-shot per update
   setUpdatedLine(p.asof, false);
   renderFeedLine();
   resyncPush();   // predictions moved (or a subscribed class finished)
