@@ -159,7 +159,17 @@ main { padding: 12px 14px 60px; max-width: 900px; }
   .erow { padding: 4px 8px; border-bottom: 1px solid #ddd; }
   .cdiv, .ccount { display: none; }
 }
-</style>
+ </style>
+<script>
+// dark is the default; set before first paint so the page never flashes light.
+// Must stay in sync with the VIEW_KEY default in applyTheme() below.
+(function(){
+  try {
+    var v = JSON.parse(localStorage.getItem("kcr2026.view.v1") || "null");
+    if (!(v && v.theme === "light")) document.documentElement.classList.add("dark");
+  } catch (e) { document.documentElement.classList.add("dark"); }
+})();
+</script>
 </head>
 <body>
 <div id="printHead"><h1>American Royal 2026 — My Schedule</h1><div class="phsub" id="phSub"></div></div>
@@ -173,7 +183,7 @@ main { padding: 12px 14px 60px; max-width: 900px; }
       <button id="filtersBtn">Filters</button>
       <button id="scopeBtn" disabled>My classes</button>
       <button id="doneBtn">Hide done</button>
-      <button id="themeBtn">Dark</button>
+      <button id="themeBtn">Light</button>
       <button id="tzBtn">KC time</button>
       <button class="primary" id="printBtn">Print</button>
       <button id="copyBtn">Copy link</button>
@@ -880,10 +890,9 @@ function applyScopeBtn(){
   b.disabled = !active();
 }
 function applyTheme(){
-  let dark;
-  if (view.theme) dark = view.theme === "dark";
-  else if (window.matchMedia) dark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-  else dark = false;   // no system signal available (e.g. jsdom)
+  // dark is the default for everyone; only an explicit saved choice of light
+  // overrides it (no system-scheme follow).
+  const dark = view.theme ? view.theme === "dark" : true;
   document.documentElement.classList.toggle("dark", dark);
   const b = $("#themeBtn");
   b.textContent = dark ? "Light" : "Dark";
