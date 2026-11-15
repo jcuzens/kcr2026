@@ -110,6 +110,9 @@ main { padding: 12px 14px 60px; max-width: 900px; }
 .chere { color: var(--muted); border: 1px solid var(--line); background: var(--surface); border-radius: 6px; font-size: 11px; padding: 1px 6px; flex: none; cursor: pointer; }
 .chere:active { background: var(--accent-soft); }
 .chere.on { background: #f59e0b; border-color: #f59e0b; color: #fff; font-weight: 600; }
+.cbell { color: var(--muted); border: 1px solid var(--line); background: var(--surface); border-radius: 6px; font-size: 11px; padding: 1px 6px; flex: none; cursor: pointer; }
+.cbell:active { background: var(--accent-soft); }
+.cbell.on { background: #f59e0b; border-color: #f59e0b; color: #fff; font-weight: 600; }
 .chev { flex: none; color: var(--muted); font-size: 11px; transition: transform .15s; grid-column: 3; grid-row: 1; }
 .cls.open .chev { transform: rotate(90deg); }
 .cls-entries { display: none; border-top: 1px solid var(--line); }
@@ -139,7 +142,7 @@ main { padding: 12px 14px 60px; max-width: 900px; }
 }
 @media print {
   :root, html.dark { --ink: #1a1a2e; --muted: #6b7280; --line: #e5e7eb; --accent: #1e40af; --accent-soft: #eff6ff; --gold: #b45309; --bg: #fff; --surface: #fff; --chip-border: #bfdbfe; --chip-press: #dbeafe; --done-bg: #d1fae5; --done-border: #6ee7b7; --done-ink: #15803d; --done-tint: #f0fdf4; --done-tint-border: #bbf7d0; --now-bg: #fffbeb; --now-line: #f59e0b; --toast-bg: #1a1a2e; --toast-ink: #fff; }
-  header .actions, aside, #toast, #feedLine, .chev, .dchev, .call, .chere, .ring { display: none !important; }
+  header .actions, aside, #toast, #feedLine, .chev, .dchev, .call, .chere, .cbell, .ring { display: none !important; }
   .day .day-body { display: block !important; }
   #printHead { display: block; margin-bottom: 14px; }
   #printHead h1 { font-size: 16pt; margin: 0 0 2px; }
@@ -232,6 +235,116 @@ let pin = null;
 function savePin(p){
   pin = p;
   try { p ? localStorage.setItem(PIN_KEY, JSON.stringify(p)) : localStorage.removeItem(PIN_KEY); } catch(e){}
+}
+
+// ---- push notifications: "notify" when a class is up. One push
+// subscription per origin, so the device id (localStorage) multiplexes
+// classes server-side (push/worker.js). The server fires on the live feed's
+// "up next"; the client's predicted start (epoch ms, pin-adjusted) is the
+// wake fallback, re-POSTed as predictions move (upsert). Persisted so the
+// chips stay on across reloads; a subscribed class that finishes (results in)
+// drops its subscription — nothing left to wait for.
+const PUSH_KEY = SHOW.ls + ".push.v1";
+let pushState = null;
+(function loadPush(){
+  try {
+    const v = JSON.parse(localStorage.getItem(PUSH_KEY) || "null");
+    if (v && typeof v === "object" && !Array.isArray(v)) pushState = v;
+  } catch(e){}
+})();
+function savePush(){
+  try { pushState ? localStorage.setItem(PUSH_KEY, JSON.stringify(pushState))
+        : localStorage.removeItem(PUSH_KEY); } catch(e){}
+}
+function vapidKey(){
+  const s0 = String(SHOW.push.vapid);
+  const b = atob(s0.replace(/-/g, "+").replace(/_/g, "/") + "=".repeat((4 - s0.length % 4) % 4));
+  const u = new Uint8Array(b.length);
+  for (let i = 0; i < b.length; i++) u[i] = b.charCodeAt(i);
+  return u;
+}
+function pushId(){
+  try { return crypto.randomUUID(); }
+  catch(e){ return "id-" + Math.random().toString(36).slice(2) + Date.now().toString(36); }
+}
+async function pushFetch(path, body, method){
+  const r = await fetch(SHOW.push.url + path, {
+    method: method || "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body), cache: "no-store",
+  });
+  if (!r.ok) throw new Error("http " + r.status);
+  try { return await r.json(); } catch(e){ return {}; }
+}
+function markBell(n, on){
+  for (const card of document.querySelectorAll('#schedule .cls[data-num="' + n + '"]')){
+    const b = card.querySelector(".cbell");
+    if (!b) continue;
+    b.className = "cbell" + (on ? " on" : "");
+    b.textContent = on ? "notifying" : "notify";
+    b.title = on ? "Pinging you when class " + n + " is up \u2014 tap to stop"
+                 : "Get a notification when class " + n + " is up";
+  }
+}
+async function togglePush(c, shifts){
+  const n = c.n;
+  if (pushState && pushState[n]){
+    try { await pushFetch("/unsubscribe", { id: pushState[n].id, class: n }, "DELETE"); }
+    catch(e){ /* the server copy may already be gone */ }
+    delete pushState[n];
+    savePush();
+    markBell(n, false);
+    toast("No longer pinging you about class " + n);
+    return;
+  }
+  try {
+    if (typeof Notification !== "undefined"){
+      if (Notification.permission === "default") await Notification.requestPermission();
+      if (Notification.permission !== "granted") {
+        toast("Allow notifications for this site, then tap again");
+        return;
+      }
+    }
+    const reg = await navigator.serviceWorker.register("/sw.js");
+    const pm = reg.pushManager;
+    let sub = await pm.getSubscription();
+    if (!sub) sub = await pm.subscribe({ userVisibleOnly: true, applicationServerKey: vapidKey() });
+    const js = (typeof sub.toJSON === "function") ? sub.toJSON()
+           : { endpoint: sub.endpoint, keys: sub.subscriptionKeys };
+    const id = pushId();
+    const body = { id: id, endpoint: js.endpoint, p256dh: js.keys.p256dh,
+                   auth: js.keys.auth, class: n };
+    const wake = c.ps != null ? Math.round(c.ps * 1000 + (shifts && shifts[c.n] || 0)) : null;
+    if (wake != null) body.wake = wake;
+    const res = await pushFetch("/subscribe", body);
+    pushState = pushState || {};
+    pushState[n] = { id: id, wake: wake != null ? wake : null };
+    savePush();
+    markBell(n, true);
+    toast(res && res.fired ? "Class " + n + " is up next \u2014 we pinged you"
+                           : "We'll ping you when class " + n + " is up");
+  } catch(e) {
+    toast("Couldn't set up notifications");
+  }
+}
+async function resyncPush(){
+  if (!pushState || Object.keys(pushState).length === 0) return;
+  const shifts = pin ? pinShifts(DATA.classes, pin) : null;
+  let changed = false;
+  for (const n of Object.keys(pushState)){
+    const c = DATA.classes.find(x => x.n === n);
+    if (!c || isDone(c)){ delete pushState[n]; changed = true; continue; }
+    const rec = pushState[n];
+    if (c.ps == null || !rec) continue;
+    const wake = Math.round(c.ps * 1000 + (shifts && shifts[n] || 0));
+    if (rec.wake === wake) continue;
+    try {
+      await pushFetch("/subscribe", { id: rec.id, class: n, wake: wake });
+      rec.wake = wake;
+      changed = true;
+    } catch(e){ /* offline; the next update retries */ }
+  }
+  if (changed) savePush();
 }
 
 function norm(s){ return (s||"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim(); }
@@ -562,6 +675,7 @@ function setPin(num){
   if (!num) lastPinNum = null;   // a manual reset is not the results override
   savePin(num ? {num: num, at: Date.now()} : null);
   renderSchedule();
+  resyncPush();   // a pin re-anchors the predicted wakes
   if (num) toast("Paced from class " + num + " \u2014 reset any time");
 }
 function renderSchedule(){
@@ -688,6 +802,14 @@ function makeClass(c, isMatch, hotNum, pinNum, shifts){
     hh.title = c.n === pinNum ? "The clock runs from this class \u2014 use Reset pace to clear" : "Pace the schedule from this class";
     hh.addEventListener("click", ev => { ev.stopPropagation(); setPin(c.n); });
     meta.appendChild(hh);
+  }
+  if (!isDone(c) && SHOW.push){
+    const on = !!(pushState && pushState[c.n]);
+    const bl = el("span", "cbell" + (on ? " on" : ""), on ? "notifying" : "notify");
+    bl.title = on ? "Pinging you when class " + c.n + " is up \u2014 tap to stop"
+                  : "Get a notification when class " + c.n + " is up";
+    bl.addEventListener("click", ev => { ev.stopPropagation(); togglePush(c, shifts); });
+    meta.appendChild(bl);
   }
   meta.appendChild(el("span","cdiv", c.div));
   const call = canToggle ? el("span","call") : null;
@@ -899,6 +1021,7 @@ function applyDataUpdate(p){
   renderSchedule();
   setUpdatedLine(p.asof, false);
   renderFeedLine();
+  resyncPush();   // predictions moved (or a subscribed class finished)
   if (aside) aside.scrollTop = asy;
   if (x || y) window.scrollTo(x, y);
 }
@@ -1032,6 +1155,7 @@ setUpdatedLine(DATA.asof, false);
 renderFeedLine();
 renderSchedule();
 scheduleTick();
+resyncPush();
 if (src) toast("Restored your selection");
 if (pollingActive) {
   ringReset();
