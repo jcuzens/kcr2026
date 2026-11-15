@@ -1035,7 +1035,7 @@ function restoreSearch(){
 }
 function applyDataUpdate(p){
   liveRaw = JSON.stringify(p);
-  prevPlaces = placeKeySet(DATA);   // rows newly placed in p get the flash class
+  prevPlaces = placeKeySet(DATA.classes);   // rows newly placed in p get the flash class
   const x = window.scrollX || 0, y = window.scrollY || 0;
   const aside = $("#filters");
   const asy = aside ? (aside.scrollTop || 0) : 0;
