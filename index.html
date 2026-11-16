@@ -527,11 +527,11 @@ function buildSchedule(){
   return [...byDay.values()].sort((a,b)=>parseInt(a.day.slice(-2))-parseInt(b.day.slice(-2)));
 }
 // ---- predicted-pace status (unit-tested)
-// ps/pe are UTC epoch seconds predicted at build time (refresh/predict.py);
-// official placings always beat the model. A "here" pin re-anchors the
-// pinned class's session tail (pinShifts) so the pinned class starts at the
-// pin time and the walk continues at the usual pace; results at/after the
-// pin drop it.
+// ps/pe are UTC epoch seconds predicted at build time (refresh/predict.py,
+// the session walk anchored on the live feed's announced class); official
+// placings always beat the model. When the feed is up, its announced class
+// is the "on now" ground truth (hotClass); the predicted walk is the
+// fallback.
 function displayOrderOf(cls){
   const byDay = new Map();
   for (const c of cls){
@@ -548,65 +548,55 @@ function displayOrderOf(cls){
   }
   return out;
 }
-function pinValidity(classes, p){
-  if (!p || !p.num) return false;
-  const order = displayOrderOf(classes);
-  let i = -1;
-  for (let j = 0; j < order.length; j++) if (order[j].n === p.num){ i = j; break; }
-  if (i < 0) return false;
-  for (let j = i; j < order.length; j++) if (isDone(order[j])) return false;
-  return true;
-}
-// Uniform shift (ms) of the pinned session's tail — the pin and every later
-// class in the same session; null when the pin is stale or has no window.
-function pinShifts(classes, p){
-  if (!pinValidity(classes, p)) return null;
-  const pc = classes.find(c => c.n === p.num);
-  if (!pc || pc.ps == null || pc.pe == null) return null;
-  const shift = p.at - pc.ps * 1000;
-  const out = {};
-  let started = false;
-  for (const c of displayOrderOf(classes)){
-    if (c.n === p.num) started = true;
-    if (started && c.day === pc.day && c.per === pc.per && c.time === pc.time && c.ps != null)
-      out[c.n] = shift;
-  }
-  return out;
-}
-function onNowCls(classes, nowMs, shifts){
+function onNowCls(classes, nowMs){
   let best = null, bestPs = null;
   for (const c of classes){
     if (isDone(c) || c.ps == null || c.pe == null) continue;
-    const ps = c.ps * 1000 + (shifts && shifts[c.n] || 0);
-    if (ps <= nowMs && nowMs < c.pe * 1000 + (shifts && shifts[c.n] || 0)
-        && (best == null || ps > bestPs)){ best = c; bestPs = ps; }
+    if (c.ps * 1000 <= nowMs && nowMs < c.pe * 1000
+        && (best == null || c.ps > bestPs)){ best = c; bestPs = c.ps; }
   }
   return best;
 }
-function upNextCls(classes, nowMs, shifts){
-  const on = onNowCls(classes, nowMs, shifts);
+function upNextCls(classes, nowMs){
+  const on = onNowCls(classes, nowMs);
   if (on) return on;
   for (const c of displayOrderOf(classes))
-    if (!isDone(c) && c.ps != null && c.ps * 1000 + (shifts && shifts[c.n] || 0) > nowMs) return c;
+    if (!isDone(c) && c.ps != null && c.ps * 1000 > nowMs) return c;
   return null;
 }
-function isPendingCls(c, nowMs, shifts){
-  return !isDone(c) && c.pe != null && nowMs >= c.pe * 1000 + (shifts && shifts[c.n] || 0);
+function isPendingCls(c, nowMs){
+  return !isDone(c) && c.pe != null && nowMs >= c.pe * 1000;
+}
+// The page's "on now" class: the live feed's announced class when the feed
+// is up and the class is in the payload and not done (official placings
+// always win); the predicted walk otherwise.
+function hotClass(classes, nowMs){
+  const f = (DATA && DATA.feed) || {};
+  if (f.up === true && f.cls != null){
+    const c = classes.find(x => x.n === String(f.cls));
+    if (c && !isDone(c)) return c;
+  }
+  return upNextCls(classes, nowMs);
 }
 function fmtShowTime(epochSec){ return fmtClock(epochSec * 1000); }
 // {tag, text, title, clsNow} for a card's predicted-status pill; null when
 // the card has none (done classes, or a future class outside its window).
-function classPill(c, nowMs, hotNum, shifts){
+// The hot class from the feed (feedNum) is "on now" by ground truth: the
+// predicted end shows while it is still ahead, and a class running past its
+// predicted window stays "on now" without a stale est.
+function classPill(c, nowMs, hotNum, feedNum){
   if (isDone(c)) return null;
-  const sh = (shifts && shifts[c.n] || 0) / 1000;
-  const ps = c.ps == null ? null : c.ps + sh;
-  const pe = c.pe == null ? null : c.pe + sh;
+  const ps = c.ps == null ? null : c.ps;
+  const pe = c.pe == null ? null : c.pe;
   if (c.n === hotNum){
+    if (c.n === feedNum)
+      return {tag:"cnow", text: pe != null && pe * 1000 > nowMs
+        ? "on now \u00b7 est " + fmtShowTime(pe) : "on now", title:"", clsNow:true};
     if (ps != null && ps * 1000 <= nowMs && nowMs < pe * 1000)
       return {tag:"cnow", text:"on now \u00b7 est " + fmtShowTime(pe), title:"", clsNow:true};
     return {tag:"cnow", text:"up next \u00b7 est " + fmtShowTime(ps), title:"", clsNow:true};
   }
-  if (isPendingCls(c, nowMs, shifts))
+  if (isPendingCls(c, nowMs))
     return {tag:"cpend", text:"awaiting results", title:"est done " + fmtShowTime(pe) + " (predicted)", clsNow:false};
   return null;
 }
@@ -700,34 +690,16 @@ function makeGroup(key, label, names, plainList){
   return g;
 }
 
-let lastPinNum = null;
-function notePin(num){
-  if (lastPinNum && !num) toast("Results are ahead of class " + lastPinNum + " \u2014 back to predicted pace");
-  lastPinNum = num;
-}
-function applyPaceBtn(active){
-  const b = $("#paceBtn");
-  if (b) b.disabled = !active;
-}
-function setPin(num){
-  if (!num) lastPinNum = null;   // a manual reset is not the results override
-  savePin(num ? {num: num, at: Date.now()} : null);
-  renderSchedule();
-  resyncPush();   // a pin re-anchors the predicted wakes
-  if (num) toast("Paced from class " + num + " \u2014 reset any time");
-}
 function renderSchedule(){
   const main = $("#schedule");
   main.textContent = "";
   const days = buildSchedule();
   const on = active();
   const nowMs = Date.now();
-  const shifts = pin ? pinShifts(DATA.classes, pin) : null;
-  notePin(shifts ? pin.num : null);
-  applyPaceBtn(!!shifts);
-  const hot = upNextCls(DATA.classes, nowMs, shifts);
+  const f = (DATA && DATA.feed) || {};
+  const feedNum = (f.up === true && f.cls != null) ? String(f.cls) : null;
+  const hot = hotClass(DATA.classes, nowMs);
   const hotNum = hot ? hot.n : null;
-  const pinNum = shifts ? pin.num : null;
   let rendered = 0;
   for (const d of days){
     const secs = [...d.sessions.entries()].sort((a,b)=>(PER_ORDER[a[0]]??9)-(PER_ORDER[b[0]]??9));
@@ -765,7 +737,7 @@ function renderSchedule(){
       for (const c of vis.slice().sort((a,b)=>parseFloat(a.n)-parseFloat(b.n))){
         const m = matched.includes(c);
         rendered++;
-        sEl.appendChild(makeClass(c, m, hotNum, pinNum, shifts));
+        sEl.appendChild(makeClass(c, m, hotNum, feedNum));
       }
       body.appendChild(sEl);
     }
@@ -777,7 +749,7 @@ function renderSchedule(){
   if (!rendered){
     main.appendChild(el("div","fnote","Nothing matches your selection. Try removing a filter."));
   }
-  main.appendChild(el("div","footnote",'"est" times are predictions from an average class pace (~10 min); actual order may vary. Tap "here" on a class to pace the schedule from where you are.'));
+  main.appendChild(el("div","footnote",'"est" times are predictions from the live feed and an average class pace (~10 min); actual order may vary.'));
   const sub = $("#phSub");
   if (sub){
     const parts = FIELDS.filter(f=>state[f.key].size).map(f=>f.label+": "+[...state[f.key]].map(k=>namesDisp(f.key,k)).join(", "));
@@ -787,7 +759,7 @@ function renderSchedule(){
 }
 function namesDisp(key,k){ const m = NAMES[key] && NAMES[key][k]; return m ? m.d : k; }
 
-function makeClass(c, isMatch, hotNum, pinNum, shifts){
+function makeClass(c, isMatch, hotNum, feedNum){
   const isHot = c.n === hotNum;
   const on = active();
   const scr = new Set(c.sc || []);
@@ -838,7 +810,7 @@ function makeClass(c, isMatch, hotNum, pinNum, shifts){
   head.appendChild(el("span","cname", c.name));
   const meta = el("span","cmeta");
   if (isDone(c)) meta.appendChild(el("span","cdone","done ✓"));
-  const pill = classPill(c, Date.now(), hotNum, shifts);
+  const pill = classPill(c, Date.now(), hotNum, feedNum);
   if (pill){
     const p = el("span", pill.tag, pill.text);
     if (pill.title) p.title = pill.title;
@@ -850,19 +822,13 @@ function makeClass(c, isMatch, hotNum, pinNum, shifts){
     lv.appendChild(document.createTextNode("live"));
     meta.appendChild(lv);
   }
-  if (!isDone(c) && c.ps != null){
-    const hh = el("span","chere" + (c.n === pinNum ? " on" : ""), "here");
-    hh.title = c.n === pinNum ? "The clock runs from this class \u2014 use Reset pace to clear" : "Pace the schedule from this class";
-    hh.addEventListener("click", ev => { ev.stopPropagation(); setPin(c.n); });
-    meta.appendChild(hh);
-  }
   if (!isDone(c) && SHOW.push){
     const on = !!(pushState && pushState[c.n]);
     const bl = el("span", "cbell" + (on ? " on" : ""));
     bl.innerHTML = BELL_SVG;
     bl.title = on ? "Pinging you when class " + c.n + " is up \u2014 tap to stop"
                   : "Get a notification when class " + c.n + " is up";
-    bl.addEventListener("click", ev => { ev.stopPropagation(); togglePush(c, shifts); });
+    bl.addEventListener("click", ev => { ev.stopPropagation(); togglePush(c); });
     meta.appendChild(bl);
   }
   meta.appendChild(el("span","cdiv", c.div));
@@ -976,7 +942,6 @@ $("#actionsToggle").addEventListener("click", () => {
 });
 $("#doneBtn").addEventListener("click", () => { view.doneHidden = !view.doneHidden; saveView(); applyDoneBtn(); renderSchedule(); });
 $("#scopeBtn").addEventListener("click", () => { view.scope = !view.scope; saveView(); applyScopeBtn(); renderSchedule(); });
-$("#paceBtn").addEventListener("click", () => setPin(null));
 
 // ---- buttons
 $("#printBtn").addEventListener("click", ()=>window.print());
@@ -1172,14 +1137,15 @@ let tickTimer = null;
 function refreshStatus(){
   if (focusInBody()) return;   // deferred; the next tick picks it up
   const nowMs = Date.now();
-  const shifts = pin ? pinShifts(DATA.classes, pin) : null;
-  const hot = upNextCls(DATA.classes, nowMs, shifts);
+  const f = (DATA && DATA.feed) || {};
+  const feedNum = (f.up === true && f.cls != null) ? String(f.cls) : null;
+  const hot = hotClass(DATA.classes, nowMs);
   const hotNum = hot ? hot.n : null;
   const byNum = new Map(DATA.classes.map(c => [c.n, c]));
   for (const card of document.querySelectorAll("#schedule .cls")){
     const c = byNum.get(card.dataset.num);
     if (!c) continue;
-    const want = classPill(c, nowMs, hotNum, shifts);
+    const want = classPill(c, nowMs, hotNum, feedNum);
     const wantNow = !!(want && want.clsNow);
     if (card.classList.contains("now") !== wantNow) card.classList.toggle("now", wantNow);
     const cur = card.querySelector(".cnow, .cpend");
@@ -1190,7 +1156,7 @@ function refreshStatus(){
     const p = el("span", want.tag, want.text);
     if (want.title) p.title = want.title;
     const meta = card.querySelector(".cmeta");
-    meta.insertBefore(p, meta.querySelector(".clive") || meta.querySelector(".chere") || meta.querySelector(".cdiv"));
+    meta.insertBefore(p, meta.querySelector(".clive") || meta.querySelector(".cdiv"));
   }
 }
 function scheduleTick(){
