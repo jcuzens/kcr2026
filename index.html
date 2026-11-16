@@ -819,7 +819,7 @@ function makeClass(c, isMatch, hotNum, feedNum){
   if (c.live != null){
     const lv = el("span","clive");
     lv.appendChild(el("span","clivedot"));
-    lv.appendChild(document.createTextNode("live"));
+    lv.appendChild(document.createTextNode("results"));
     meta.appendChild(lv);
   }
   if (!isDone(c) && SHOW.push){
