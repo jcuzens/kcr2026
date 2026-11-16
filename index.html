@@ -5,6 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>American Royal 2026 — My Schedule</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20100%20100'%3E%3Ctext%20y='.9em'%20font-size='90'%3E%F0%9F%90%8E%3C%2Ftext%3E%3C%2Fsvg%3E">
+<!-- iOS Home Screen: the label under the icon, standalone launch, and the
+     touch icon. Relative href — a project page's root is /kcr2026/ -->
+<meta name="apple-mobile-web-app-title" content="AR 2026">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <style>
 :root {
   --ink: #1a1a2e; --muted: #6b7280; --line: #e5e7eb;
@@ -347,7 +354,15 @@ async function togglePush(c, shifts){
     toast(res && res.fired ? "Class " + n + " is up next \u2014 we pinged you"
                            : "We'll ping you when class " + n + " is up");
   } catch(e) {
-    toast("Couldn't set up notifications" + (e && e.message ? " \u2014 " + e.message : ""), 6000);
+    // iOS (incl. iPadOS reporting as MacIntel): web push is most reliable
+    // from a Home Screen web app — point there instead of a bare error
+    const ios = /iphone|ipad|ipod/i.test(navigator.userAgent)
+              || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    if (ios) {
+      toast("On iPhone: Share \u2192 Add to Home Screen, open the page from the icon, and tap the bell there", 9000);
+    } else {
+      toast("Couldn't set up notifications" + (e && e.message ? " \u2014 " + e.message : ""), 6000);
+    }
   }
 }
 async function resyncPush(){
