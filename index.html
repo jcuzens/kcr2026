@@ -606,7 +606,7 @@ const $ = s => document.querySelector(s);
 function el(tag, cls, txt){ const n = document.createElement(tag); if (cls) n.className = cls; if (txt!=null) n.textContent = txt; return n; }
 // places present in the payload shown right now, keyed "num:entryIdx"; the
 // next data re-render flashes rows that are newly placed (.erow-new). Set by
-// applyDataUpdate only, so filter/pin re-renders never flash.
+// applyDataUpdate only, so filter re-renders never flash.
 let prevPlaces = null;
 function placeKeySet(classes){
   const s = new Set();
