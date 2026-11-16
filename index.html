@@ -129,9 +129,6 @@ main { padding: 12px 14px 60px; max-width: 900px; }
 .ccount { color: var(--muted); font-size: 12.5px; flex: none; }
 .call { font-size: 12px; padding: 2px 8px; border: 1px solid var(--chip-border); background: var(--accent-soft); color: var(--accent); border-radius: 8px; cursor: pointer; flex: none; }
 .call:active { background: var(--chip-press); }
-.chere { color: var(--muted); border: 1px solid var(--line); background: var(--surface); border-radius: 6px; font-size: 11px; padding: 1px 6px; flex: none; cursor: pointer; }
-.chere:active { background: var(--accent-soft); }
-.chere.on { background: #f59e0b; border-color: #f59e0b; color: #fff; font-weight: 600; }
 .cbell { color: var(--muted); border: 1px solid var(--line); background: var(--surface); border-radius: 6px; display: inline-flex; align-items: center; padding: 2px 5px; flex: none; cursor: pointer; }
 .cbell svg { display: block; }
 .cbell:active { background: var(--accent-soft); }
@@ -169,7 +166,7 @@ main { padding: 12px 14px 60px; max-width: 900px; }
 }
 @media print {
   :root, html.dark { --ink: #1a1a2e; --muted: #6b7280; --line: #e5e7eb; --accent: #1e40af; --accent-soft: #eff6ff; --gold: #b45309; --bg: #fff; --surface: #fff; --chip-border: #bfdbfe; --chip-press: #dbeafe; --done-bg: #d1fae5; --done-border: #6ee7b7; --done-ink: #15803d; --done-tint: #f0fdf4; --done-tint-border: #bbf7d0; --now-bg: #fffbeb; --now-line: #f59e0b; --toast-bg: #1a1a2e; --toast-ink: #fff; }
-  header .actions, aside, #toast, #feedLine, .chev, .dchev, .call, .chere, .cbell, .ring { display: none !important; }
+  header .actions, aside, #toast, #feedLine, .chev, .dchev, .call, .cbell, .ring { display: none !important; }
   .day .day-body { display: block !important; }
   #printHead { display: block; margin-bottom: 14px; }
   #printHead h1 { font-size: 16pt; margin: 0 0 2px; }
@@ -215,7 +212,6 @@ main { padding: 12px 14px 60px; max-width: 900px; }
       <button class="primary" id="printBtn">Print</button>
       <button class="acticon" id="copyBtn" aria-label="Copy link"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
       <button id="clearBtn">Clear</button>
-      <button id="paceBtn" disabled>Reset pace</button>
     </div>
     <button id="actionsToggle" class="acts-toggle" aria-expanded="true" aria-controls="actsBtns" title="Show/hide buttons"><svg class="acts-chev" width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
   </div>
@@ -257,30 +253,13 @@ const view = { filtersOpen: null, scope: false, doneHidden: false, theme: null, 
 })();
 function saveView(){ try { localStorage.setItem(VIEW_KEY, JSON.stringify(view)); } catch(e){} }
 
-// ---- manual "here" pacing: the user pins the live class. The pinned
-// class's session is re-anchored so the pinned class starts at the pin time
-// and the rest of the session walks forward at the usual pace. Results at or
-// after the pin (live or official) drop the pin; a header button resets it.
-const PIN_KEY = SHOW.ls + ".pin.v1";
-let pin = null;
-(function loadPin(){
-  try {
-    const v = JSON.parse(localStorage.getItem(PIN_KEY) || "null");
-    if (v && typeof v.num === "string" && typeof v.at === "number") pin = v;
-  } catch(e){}
-})();
-function savePin(p){
-  pin = p;
-  try { p ? localStorage.setItem(PIN_KEY, JSON.stringify(p)) : localStorage.removeItem(PIN_KEY); } catch(e){}
-}
-
 // ---- push notifications: "notify" when a class is up. One push
 // subscription per origin, so the device id (localStorage) multiplexes
 // classes server-side (push/worker.js). The server fires on the live feed's
-// "up next"; the client's predicted start (epoch ms, pin-adjusted) is the
-// wake fallback, re-POSTed as predictions move (upsert). Persisted so the
-// chips stay on across reloads; a subscribed class that finishes (results in)
-// drops its subscription — nothing left to wait for.
+// "up next"; the client's predicted start (epoch ms) is the wake fallback,
+// re-POSTed as predictions move (upsert). Persisted so the chips stay on
+// across reloads; a subscribed class that finishes (results in) drops its
+// subscription — nothing left to wait for.
 const PUSH_KEY = SHOW.ls + ".push.v1";
 let pushState = null;
 (function loadPush(){
@@ -327,7 +306,7 @@ function markBell(n, on){
                   : "Get a notification when class " + n + " is up";
   }
 }
-async function togglePush(c, shifts){
+async function togglePush(c){
   const n = c.n;
   if (pushState && pushState[n]){
     try { await pushFetch("/unsubscribe", { id: pushState[n].id, class: n }, "DELETE"); }
@@ -357,7 +336,7 @@ async function togglePush(c, shifts){
     const id = pushId();
     const body = { id: id, endpoint: js.endpoint, p256dh: js.keys.p256dh,
                    auth: js.keys.auth, class: n };
-    const wake = c.ps != null ? Math.round(c.ps * 1000 + (shifts && shifts[c.n] || 0)) : null;
+    const wake = c.ps != null ? Math.round(c.ps * 1000) : null;
     if (wake != null) body.wake = wake;
     const res = await pushFetch("/subscribe", body);
     pushState = pushState || {};
@@ -380,14 +359,13 @@ async function togglePush(c, shifts){
 }
 async function resyncPush(){
   if (!pushState || Object.keys(pushState).length === 0) return;
-  const shifts = pin ? pinShifts(DATA.classes, pin) : null;
   let changed = false;
   for (const n of Object.keys(pushState)){
     const c = DATA.classes.find(x => x.n === n);
     if (!c || isDone(c)){ delete pushState[n]; changed = true; continue; }
     const rec = pushState[n];
     if (c.ps == null || !rec) continue;
-    const wake = Math.round(c.ps * 1000 + (shifts && shifts[n] || 0));
+    const wake = Math.round(c.ps * 1000);
     if (rec.wake === wake) continue;
     try {
       await pushFetch("/subscribe", { id: rec.id, class: n, wake: wake });
