@@ -322,7 +322,9 @@ async function togglePush(c, shifts){
         return;
       }
     }
-    const reg = await navigator.serviceWorker.register("/sw.js");
+    // relative: the page lives on a GitHub Pages *project* page, so the
+    // site root is /kcr2026/ — an absolute "/sw.js" would 404
+    const reg = await navigator.serviceWorker.register("sw.js");
     const pm = reg.pushManager;
     let sub = await pm.getSubscription();
     if (!sub) sub = await pm.subscribe({ userVisibleOnly: true, applicationServerKey: vapidKey() });
