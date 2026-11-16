@@ -597,7 +597,7 @@ function classPill(c, nowMs, hotNum, feedNum){
     return {tag:"cnow", text:"up next \u00b7 est " + fmtShowTime(ps), title:"", clsNow:true};
   }
   if (isPendingCls(c, nowMs))
-    return {tag:"cpend", text:"awaiting results", title:"est done " + fmtShowTime(pe) + " (predicted)", clsNow:false};
+    return {tag:"cpend", text:"finalizing", title:"est done " + fmtShowTime(pe) + " (predicted)", clsNow:false};
   return null;
 }
 
