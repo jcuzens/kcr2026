@@ -109,9 +109,14 @@ main { padding: 12px 14px 60px; max-width: 900px; }
 .clivedot { width: 6px; height: 6px; border-radius: 50%; background: var(--gold); animation: clivepulse 2s ease-in-out infinite; }
 @keyframes clivepulse { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
 @media (prefers-reduced-motion: reduce) { .clivedot { animation: none; } }
+/* provisional placing from the live feed, shown on the entry row until the
+   official placing lands (official always wins — the row then re-renders
+   without the marker) */
+.eppl .place .plivedot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--gold); margin-left: 4px; animation: clivepulse 2s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) {
   .cls, .cls-entries { transition: none; }
   .erow-new { animation: none; }
+  .plivedot { animation: none; }
 }
 .cls-head { width: 100%; display: grid; grid-template-columns: auto 1fr auto; align-items: baseline; column-gap: 8px; row-gap: 7px; padding: 10px 12px; border: none; background: var(--surface); font: inherit; color: var(--ink); text-align: left; cursor: pointer; }
 .cls-head:active { background: var(--accent-soft); }
@@ -808,6 +813,13 @@ function makeClass(c, isMatch, hotNum, pinNum, shifts){
   const isHot = c.n === hotNum;
   const on = active();
   const scr = new Set(c.sc || []);
+  // provisional placings from the live feed, by entry number (feed up only;
+  // any class with announced places — not just the current one). Official
+  // placings (e[6]) always win; these paint unplaced rows in the meantime.
+  const feed = (DATA && DATA.feed) || {};
+  const provRes = (feed.up === true && feed.res && feed.res[c.n]) ? feed.res[c.n] : null;
+  const provByEntry = {};
+  if (provRes) for (const p in provRes) provByEntry[provRes[p][0]] = p;
   const visE = on ? c.e.filter(eMatches) : c.e;
   const showFiltered = on && isMatch;
   const canToggle = showFiltered && visE.length < c.e.length;
@@ -829,6 +841,13 @@ function makeClass(c, isMatch, hotNum, pinNum, shifts){
       row.appendChild(horse);
       const ppl = el("span","eppl");
       if (e[6]!=null) ppl.appendChild(el("span","place", e[6]+placeSuf(e[6]) + "  "));
+      else if (provByEntry[e[0]]){
+        const p = provByEntry[e[0]];
+        const sp = el("span","place prov", p + placeSuf(p) + "  ");
+        sp.title = "Live feed \u2014 official placing pending";
+        sp.appendChild(el("span","plivedot"));
+        ppl.appendChild(sp);
+      }
       ppl.appendChild(document.createTextNode(e[2] + (e[3] && e[3]!==e[2] ? "  ·  " + e[3] : "")));
       row.appendChild(ppl);
       box.appendChild(row);
