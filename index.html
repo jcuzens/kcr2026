@@ -290,7 +290,11 @@ async function pushFetch(path, body, method){
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body), cache: "no-store",
   });
-  if (!r.ok) throw new Error("http " + r.status);
+  if (!r.ok) {
+    let t = "";
+    try { t = await r.text(); } catch(e){}
+    throw new Error("http " + r.status + (t ? " " + t.slice(0, 120) : ""));
+  }
   try { return await r.json(); } catch(e){ return {}; }
 }
 function markBell(n, on){
@@ -343,7 +347,7 @@ async function togglePush(c, shifts){
     toast(res && res.fired ? "Class " + n + " is up next \u2014 we pinged you"
                            : "We'll ping you when class " + n + " is up");
   } catch(e) {
-    toast("Couldn't set up notifications");
+    toast("Couldn't set up notifications" + (e && e.message ? " \u2014 " + e.message : ""), 6000);
   }
 }
 async function resyncPush(){
