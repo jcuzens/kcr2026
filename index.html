@@ -837,6 +837,10 @@ function makeClass(c, isMatch, hotNum, feedNum, pinNum, nextNum, clsDoneStamp){
       box.appendChild(row);
     }
   };
+  const pill = classPill(c, Date.now(), hotNum, feedNum, pinNum, nextNum, clsDoneStamp);
+  // the card's 'now' highlight follows the pill (a settled announced class
+  // is 'finalizing' — hot but not on now)
+  const isHot = c.n === hotNum && !!(pill && pill.clsNow);
   const d = el("div","cls" + (on && !isMatch && !isHot ? " muted" : "") + (isDone(c) ? " done" : "") + (isHot ? " now" : ""));
   d.dataset.num = c.n;
   const head = el("button","cls-head");
@@ -844,7 +848,6 @@ function makeClass(c, isMatch, hotNum, feedNum, pinNum, nextNum, clsDoneStamp){
   head.appendChild(el("span","cname", c.name));
   const meta = el("span","cmeta");
   if (isDone(c)) meta.appendChild(el("span","cdone","done ✓"));
-  const pill = classPill(c, Date.now(), hotNum, feedNum, pinNum, nextNum, clsDoneStamp);
   if (pill){
     const p = el("span", pill.tag, pill.text);
     if (pill.title) p.title = pill.title;
