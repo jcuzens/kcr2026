@@ -624,25 +624,36 @@ function feedStale(f, nowMs){
 // break. The same quieting applies when the anchor is STALE (stale =
 // feedStale: feed down + the last call is a finished session, 2026-11-17 —
 // the 13:30:44 class-54 anchor kept projecting 55..66 during the afternoon
-// break): the pinned class shows 'finalizing' (settled, results pending)
-// and the cascade is quiet — a break shows just the settled class. nextNum
+// break): the stale est walk is inert (no up-next / predicted-finalizing
+// pills), and the break shows only what the feed actually heard — classes
+// with announced placings (provRes) show 'finalizing' (official placing
+// pending), and the pinned last-announced class shows 'up next' (it is the
+// next class to run) unless the feed heard IT settle (clsDoneStamp, or its
+// own provRes -> 'finalizing'). A class the session ended before settling
+// (2026-11-17: 54 — the session music came 10 min after its 13:30:44 call,
+// before its results were read) is NOT 'finalizing' — it never was. nextNum
 // keeps an "up next · est" visible while the session is live.
-function classPill(c, nowMs, hotNum, feedNum, pinNum, nextNum, clsDoneStamp, stale){
+function classPill(c, nowMs, hotNum, feedNum, pinNum, nextNum, clsDoneStamp, stale, provRes){
   if (isDone(c)) return null;
   const ps = c.ps == null ? null : c.ps;
   const pe = c.pe == null ? null : c.pe;
   if (c.n === hotNum){
-    if ((c.n === feedNum || c.n === pinNum) && (clsDoneStamp != null || stale))
+    if ((c.n === feedNum || c.n === pinNum) && clsDoneStamp != null)
       return {tag:"cpend", text:"finalizing",
-              title: clsDoneStamp != null
-                ? "settled " + fmtShowTime(clsDoneStamp) + " (live feed)"
-                : "last class announced by the live feed; the feed is down \u2014 results pending", clsNow:false};
+              title:"settled " + fmtShowTime(clsDoneStamp) + " (live feed)", clsNow:false};
     if (c.n === feedNum)
       return {tag:"cnow", text: pe != null && pe * 1000 > nowMs
         ? "on now \u00b7 est " + fmtShowTime(pe) : "on now", title:"", clsNow:true};
-    if (c.n === pinNum)
+    if (c.n === pinNum){
+      if (stale)
+        return provRes
+          ? {tag:"cpend", text:"finalizing",
+             title:"Live feed \u2014 official placing pending", clsNow:false}
+          : {tag:"cnow", text:"up next",
+             title:"last class announced by the live feed; the session is on break \u2014 it is up next", clsNow:false};
       return {tag:"cnow", text:"on now",
               title:"last class announced by the live feed; the feed is currently down", clsNow:true};
+    }
     if (ps != null && ps * 1000 <= nowMs && nowMs < pe * 1000)
       return {tag:"cnow", text:"on now \u00b7 est " + fmtShowTime(pe), title:"", clsNow:true};
     return {tag:"cnow", text:"up next \u00b7 est " + fmtShowTime(ps), title:"", clsNow:true};
@@ -652,6 +663,11 @@ function classPill(c, nowMs, hotNum, feedNum, pinNum, nextNum, clsDoneStamp, sta
     return {tag:"cnow", text:"up next \u00b7 est " + fmtShowTime(ps), title:"", clsNow:false};
   if (!quiet && isPendingCls(c, nowMs))
     return {tag:"cpend", text:"finalizing", title:"est done " + fmtShowTime(pe) + " (predicted)", clsNow:false};
+  // a stale break: a class the feed already read results for (official
+  // placing not in the payload yet) is finalizing — the est walk is not
+  if (stale && provRes)
+    return {tag:"cpend", text:"finalizing",
+            title:"Live feed \u2014 official placing pending", clsNow:false};
   return null;
 }
 
