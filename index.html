@@ -1074,6 +1074,25 @@ function applyDataUpdate(p){
     const key = dEl.dataset.day;
     if (key != null && dayState[key] == null) dayState[key] = dEl.classList.contains("collapsed");
   }
+  // Focus is preserved across the rebuild (the focused node is replaced; the
+  // header toolbar is static and never rebuilt). Captured before, restored
+  // after, by a stable key:
+  //   "cls:<num>"   any focusable node inside a card (#schedule)
+  //   "fsearch:<i>" the #filters search inputs (fixed group order)
+  //   "clearx:<i>"  the #filters per-group clear buttons (fixed order)
+  // An unresolvable key (a rebuilt list no longer has the slot — e.g. a
+  // checkbox whose option dropped out of the new payload, or a dynamic chip)
+  // falls to <body>, the default when a focused node is destroyed.
+  let focusKey = null;
+  const fe = document.activeElement;
+  if (fe && fe !== document.body && typeof fe.closest === "function"){
+    const card = fe.closest(".cls");
+    if (card) focusKey = "cls:" + card.dataset.num;
+    else if (fe.matches("#filters .fsearch"))
+      focusKey = "fsearch:" + [...document.querySelectorAll("#filters .fsearch")].indexOf(fe);
+    else if (fe.matches("#filters .clearx"))
+      focusKey = "clearx:" + [...document.querySelectorAll("#filters .clearx")].indexOf(fe);
+  }
   DATA = p;
   buildIndexes();
   renderFilters();
@@ -1083,27 +1102,18 @@ function applyDataUpdate(p){
   setUpdatedLine(p.asof, false);
   renderFeedLine();
   resyncPush();   // predictions moved (or a subscribed class finished)
+  if (focusKey){
+    let el2 = null;
+    if (focusKey.indexOf("cls:") === 0)
+      el2 = document.querySelector('#schedule .cls[data-num="' + focusKey.slice(4) + '"] .cls-head');
+    else if (focusKey.indexOf("fsearch:") === 0)
+      el2 = document.querySelectorAll("#filters .fsearch")[+focusKey.slice(8)] || null;
+    else if (focusKey.indexOf("clearx:") === 0)
+      el2 = document.querySelectorAll("#filters .clearx")[+focusKey.slice(7)] || null;
+    if (el2) el2.focus({preventScroll: true});   // the scroll restores below own scroll
+  }
   if (aside) aside.scrollTop = asy;
   if (x || y) window.scrollTo(x, y);
-}
-let pendingPayload = null, pendingAt = 0;
-function focusInBody(){
-  const a = document.activeElement;
-  return !!a && a !== document.body &&
-    ($("#filters").contains(a) || $("#schedule").contains(a));
-}
-// The deferral is for the brief moment a re-render would disturb the user's
-// focus; it must not be open-ended. A card/header BUTTON click pins focus
-// in #schedule until the user clicks elsewhere, and holding every payload
-// while it sits there made the page look dead (2026-11-17 13:06: the header
-// asof marched to 13:07+ and the network tab fetched newer payloads while
-// the schedule stayed on the 13:06 render). Force-apply after 20 s.
-function flushPending(){
-  if (pendingPayload && (!focusInBody() || Date.now() - pendingAt > 20000)){
-    const p = pendingPayload;
-    pendingPayload = null; pendingAt = 0;
-    safeApply(p);
-  }
 }
 // A failed re-render must not trap the page: applyDataUpdate advances
 // DATA/liveRaw before it renders, so a throw mid-render leaves the new hash
