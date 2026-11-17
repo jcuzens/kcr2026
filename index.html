@@ -1270,7 +1270,8 @@ function refreshStatus(){
     const c = byNum.get(card.dataset.num);
     if (!c) continue;
     const want = classPill(c, nowMs, hotNum, feedNum, pinNum, nextNum,
-                           clsDoneStamp, feedStale(f, nowMs));
+                           clsDoneStamp, feedStale(f, nowMs),
+                           (f.res && f.res[c.n]) || null);
     const wantNow = !!(want && want.clsNow);
     if (card.classList.contains("now") !== wantNow) card.classList.toggle("now", wantNow);
     const cur = card.querySelector(".cnow, .cpend");
