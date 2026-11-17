@@ -727,6 +727,7 @@ function renderSchedule(){
   const f = (DATA && DATA.feed) || {};
   const feedNum = (f.up === true && f.cls != null) ? String(f.cls) : null;
   const pinNum = (f.up !== true && f.cls != null) ? String(f.cls) : null;
+  const clsDoneStamp = (f.cls != null && f.clsdone != null) ? f.clsdone : null;
   const hot = hotClass(DATA.classes, nowMs);
   const hotNum = hot ? hot.n : null;
   const nextNum = nextClsNum(DATA.classes, nowMs);
