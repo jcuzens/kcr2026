@@ -1185,13 +1185,10 @@ async function poll(){
         pollsFailed = 0;
         const raw = JSON.stringify(p);
         if (raw !== liveRaw){
-          if (focusInBody()){
-            pendingPayload = p;
-            if (!pendingAt) pendingAt = Date.now();   // box starts at first defer
-            setUpdatedLine(p.asof, false);
-          } else {
-            safeApply(p);
-          }
+          // Applies regardless of focus: applyDataUpdate re-focuses the
+          // rebuilt node for whatever had focus (a card button used to pin
+          // focus in #schedule forever and hold every payload - 2026-11-17).
+          safeApply(p);
         } else {
           setUpdatedLine(DATA.asof, false);
         }
