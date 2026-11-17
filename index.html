@@ -1208,7 +1208,7 @@ async function poll(){
 const TICK_MS = (typeof window.__TICK_MS === "number") ? window.__TICK_MS : 60000;
 let tickTimer = null;
 function refreshStatus(){
-  if (focusInBody()) return;   // deferred; the next tick picks it up
+  // Text-only in-place pill updates (never re-renders), safe under focus.
   const nowMs = Date.now();
   const f = (DATA && DATA.feed) || {};
   const feedNum = (f.up === true && f.cls != null) ? String(f.cls) : null;
