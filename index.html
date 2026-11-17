@@ -1086,17 +1086,36 @@ function applyDataUpdate(p){
   if (aside) aside.scrollTop = asy;
   if (x || y) window.scrollTo(x, y);
 }
-let pendingPayload = null;
+let pendingPayload = null, pendingAt = 0;
 function focusInBody(){
   const a = document.activeElement;
   return !!a && a !== document.body &&
     ($("#filters").contains(a) || $("#schedule").contains(a));
 }
+// The deferral is for the brief moment a re-render would disturb the user's
+// focus; it must not be open-ended. A card/header BUTTON click pins focus
+// in #schedule until the user clicks elsewhere, and holding every payload
+// while it sits there made the page look dead (2026-11-17 13:06: the header
+// asof marched to 13:07+ and the network tab fetched newer payloads while
+// the schedule stayed on the 13:06 render). Force-apply after 20 s.
 function flushPending(){
-  if (pendingPayload && !focusInBody()){
+  if (pendingPayload && (!focusInBody() || Date.now() - pendingAt > 20000)){
     const p = pendingPayload;
-    pendingPayload = null;
-    applyDataUpdate(p);
+    pendingPayload = null; pendingAt = 0;
+    safeApply(p);
+  }
+}
+// A failed re-render must not trap the page: applyDataUpdate advances
+// DATA/liveRaw before it renders, so a throw mid-render leaves the new hash
+// in place and every later poll sees chk.h === DATA.h and never renders
+// again (silent permanent freeze). Roll both back on failure so the next
+// cycle retries the same update, and surface the error.
+function safeApply(p){
+  const keepData = DATA, keepRaw = liveRaw;
+  try { applyDataUpdate(p); }
+  catch (err){
+    console.error("apply failed, retrying next cycle:", err);
+    DATA = keepData; liveRaw = keepRaw;
   }
 }
 document.addEventListener("focusout", flushPending);
