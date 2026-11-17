@@ -595,6 +595,21 @@ function nextClsNum(classes, nowMs){
   return null;
 }
 function fmtShowTime(epochSec){ return fmtClock(epochSec * 1000); }
+// Anchor freshness (2026-11-17): the feed block's at_s is the predicted
+// walk's anchor epoch seconds (the last announced class's call time — the
+// call's AUDIO time). While the feed is up, every class call re-anchors, so
+// the walk tracks reality. While the feed is DOWN the walk is a one-shot
+// projection from the last call — and a session can end within ~14 min of
+// its last call (2026-11-17: class 54 called 13:30:44, session music
+// 13:41) — so an anchor older than one pace interval with the feed down
+// means the session is over (the page and the push Worker gate on the same
+// threshold; push/logic.js ANCHOR_STALE_MS).
+const ANCHOR_STALE_MS = 10 * 60 * 1000;
+function feedStale(f, nowMs){
+  if (f.up === true) return false;
+  if (typeof f.at_s !== "number") return false;
+  return nowMs - f.at_s * 1000 > ANCHOR_STALE_MS;
+}
 // {tag, text, title, clsNow} for a card's predicted-status pill; null when
 // the card has none (done classes, or a future class outside its window).
 // The hot class from the feed (feedNum) is "on now" by ground truth: the
@@ -606,15 +621,22 @@ function fmtShowTime(epochSec){ return fmtClock(epochSec * 1000); }
 // the class shows 'finalizing' instead of 'on now', and the est cascade
 // (up-next / finalizing pills on the other classes) stays quiet until the
 // next class call re-anchors — no fake 'up next 45 · est 10:42' during a
-// break. nextNum keeps an "up next · est" visible while the session is live.
-function classPill(c, nowMs, hotNum, feedNum, pinNum, nextNum, clsDoneStamp){
+// break. The same quieting applies when the anchor is STALE (stale =
+// feedStale: feed down + the last call is a finished session, 2026-11-17 —
+// the 13:30:44 class-54 anchor kept projecting 55..66 during the afternoon
+// break): the pinned class shows 'finalizing' (settled, results pending)
+// and the cascade is quiet — a break shows just the settled class. nextNum
+// keeps an "up next · est" visible while the session is live.
+function classPill(c, nowMs, hotNum, feedNum, pinNum, nextNum, clsDoneStamp, stale){
   if (isDone(c)) return null;
   const ps = c.ps == null ? null : c.ps;
   const pe = c.pe == null ? null : c.pe;
   if (c.n === hotNum){
-    if ((c.n === feedNum || c.n === pinNum) && clsDoneStamp != null)
+    if ((c.n === feedNum || c.n === pinNum) && (clsDoneStamp != null || stale))
       return {tag:"cpend", text:"finalizing",
-              title:"settled " + fmtShowTime(clsDoneStamp) + " (live feed)", clsNow:false};
+              title: clsDoneStamp != null
+                ? "settled " + fmtShowTime(clsDoneStamp) + " (live feed)"
+                : "last class announced by the live feed; the feed is down \u2014 results pending", clsNow:false};
     if (c.n === feedNum)
       return {tag:"cnow", text: pe != null && pe * 1000 > nowMs
         ? "on now \u00b7 est " + fmtShowTime(pe) : "on now", title:"", clsNow:true};
