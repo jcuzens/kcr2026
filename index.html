@@ -867,7 +867,8 @@ function makeClass(c, isMatch, hotNum, feedNum, pinNum, nextNum, clsDoneStamp){
       box.appendChild(row);
     }
   };
-  const pill = classPill(c, Date.now(), hotNum, feedNum, pinNum, nextNum, clsDoneStamp);
+  const pill = classPill(c, Date.now(), hotNum, feedNum, pinNum, nextNum,
+                         clsDoneStamp, feedStale(feed, Date.now()));
   // the card's 'now' highlight follows the pill (a settled announced class
   // is 'finalizing' — hot but not on now)
   const isHot = c.n === hotNum && !!(pill && pill.clsNow);
@@ -1252,7 +1253,8 @@ function refreshStatus(){
   for (const card of document.querySelectorAll("#schedule .cls")){
     const c = byNum.get(card.dataset.num);
     if (!c) continue;
-    const want = classPill(c, nowMs, hotNum, feedNum, pinNum, nextNum, clsDoneStamp);
+    const want = classPill(c, nowMs, hotNum, feedNum, pinNum, nextNum,
+                           clsDoneStamp, feedStale(f, nowMs));
     const wantNow = !!(want && want.clsNow);
     if (card.classList.contains("now") !== wantNow) card.classList.toggle("now", wantNow);
     const cur = card.querySelector(".cnow, .cpend");
