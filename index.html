@@ -744,8 +744,11 @@ function renderSchedule(){
       const list = cls.filter(c => !view.doneHidden || !isDone(c));
       const matched = on ? list.filter(clsMatches) : list;
       let vis = (on && view.scope) ? list : matched;
-      if (on && !view.scope && hotNum && list.some(c => c.n === hotNum) && !vis.some(c => c.n === hotNum)){
-        vis = [...vis, list.find(c => c.n === hotNum)];
+      if (on && !view.scope){
+        for (const n of [hotNum, nextNum]){
+          if (n && list.some(c => c.n === n) && !vis.some(c => c.n === n))
+            vis = [...vis, list.find(c => c.n === n)];
+        }
       }
       if (!vis.length) continue;
       dShown += matched.length;
