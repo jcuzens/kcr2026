@@ -598,13 +598,20 @@ function fmtShowTime(epochSec){ return fmtClock(epochSec * 1000); }
 // predicted end shows while it is still ahead, and a class running past its
 // predicted window stays "on now" without a stale est. The pinned last
 // announced class (pinNum, feed down) is "on now" with no est — its window
-// is only a pace projection while the feed is silent. nextNum keeps an
-// "up next · est" visible when there is no on-now card (the break).
-function classPill(c, nowMs, hotNum, feedNum, pinNum, nextNum){
+// is only a pace projection while the feed is silent. Once the feed has
+// HEARD the class settle (clsDoneStamp: its lineup / first announced result)
+// the class shows 'finalizing' instead of 'on now', and the est cascade
+// (up-next / finalizing pills on the other classes) stays quiet until the
+// next class call re-anchors — no fake 'up next 45 · est 10:42' during a
+// break. nextNum keeps an "up next · est" visible while the session is live.
+function classPill(c, nowMs, hotNum, feedNum, pinNum, nextNum, clsDoneStamp){
   if (isDone(c)) return null;
   const ps = c.ps == null ? null : c.ps;
   const pe = c.pe == null ? null : c.pe;
   if (c.n === hotNum){
+    if ((c.n === feedNum || c.n === pinNum) && clsDoneStamp != null)
+      return {tag:"cpend", text:"finalizing",
+              title:"settled " + fmtShowTime(clsDoneStamp) + " (live feed)", clsNow:false};
     if (c.n === feedNum)
       return {tag:"cnow", text: pe != null && pe * 1000 > nowMs
         ? "on now \u00b7 est " + fmtShowTime(pe) : "on now", title:"", clsNow:true};
@@ -615,9 +622,9 @@ function classPill(c, nowMs, hotNum, feedNum, pinNum, nextNum){
       return {tag:"cnow", text:"on now \u00b7 est " + fmtShowTime(pe), title:"", clsNow:true};
     return {tag:"cnow", text:"up next \u00b7 est " + fmtShowTime(ps), title:"", clsNow:true};
   }
-  if (c.n === nextNum && ps != null && ps * 1000 > nowMs)
+  if (clsDoneStamp == null && c.n === nextNum && ps != null && ps * 1000 > nowMs)
     return {tag:"cnow", text:"up next \u00b7 est " + fmtShowTime(ps), title:"", clsNow:false};
-  if (isPendingCls(c, nowMs))
+  if (clsDoneStamp == null && isPendingCls(c, nowMs))
     return {tag:"cpend", text:"finalizing", title:"est done " + fmtShowTime(pe) + " (predicted)", clsNow:false};
   return null;
 }
