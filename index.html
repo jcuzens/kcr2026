@@ -782,7 +782,7 @@ function renderSchedule(){
 }
 function namesDisp(key,k){ const m = NAMES[key] && NAMES[key][k]; return m ? m.d : k; }
 
-function makeClass(c, isMatch, hotNum, feedNum){
+function makeClass(c, isMatch, hotNum, feedNum, pinNum, nextNum){
   const isHot = c.n === hotNum;
   const on = active();
   const scr = new Set(c.sc || []);
@@ -833,7 +833,7 @@ function makeClass(c, isMatch, hotNum, feedNum){
   head.appendChild(el("span","cname", c.name));
   const meta = el("span","cmeta");
   if (isDone(c)) meta.appendChild(el("span","cdone","done ✓"));
-  const pill = classPill(c, Date.now(), hotNum, feedNum);
+  const pill = classPill(c, Date.now(), hotNum, feedNum, pinNum, nextNum);
   if (pill){
     const p = el("span", pill.tag, pill.text);
     if (pill.title) p.title = pill.title;
