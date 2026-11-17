@@ -1181,7 +1181,7 @@ function refreshStatus(){
   for (const card of document.querySelectorAll("#schedule .cls")){
     const c = byNum.get(card.dataset.num);
     if (!c) continue;
-    const want = classPill(c, nowMs, hotNum, feedNum, pinNum, nextNum);
+    const want = classPill(c, nowMs, hotNum, feedNum, pinNum, nextNum, clsDoneStamp);
     const wantNow = !!(want && want.clsNow);
     if (card.classList.contains("now") !== wantNow) card.classList.toggle("now", wantNow);
     const cur = card.querySelector(".cnow, .cpend");
