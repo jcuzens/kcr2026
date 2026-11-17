@@ -1178,9 +1178,10 @@ async function poll(){
         if (raw !== liveRaw){
           if (focusInBody()){
             pendingPayload = p;
+            if (!pendingAt) pendingAt = Date.now();   // box starts at first defer
             setUpdatedLine(p.asof, false);
           } else {
-            applyDataUpdate(p);
+            safeApply(p);
           }
         } else {
           setUpdatedLine(DATA.asof, false);
