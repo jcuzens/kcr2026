@@ -596,8 +596,11 @@ function fmtShowTime(epochSec){ return fmtClock(epochSec * 1000); }
 // the card has none (done classes, or a future class outside its window).
 // The hot class from the feed (feedNum) is "on now" by ground truth: the
 // predicted end shows while it is still ahead, and a class running past its
-// predicted window stays "on now" without a stale est.
-function classPill(c, nowMs, hotNum, feedNum){
+// predicted window stays "on now" without a stale est. The pinned last
+// announced class (pinNum, feed down) is "on now" with no est — its window
+// is only a pace projection while the feed is silent. nextNum keeps an
+// "up next · est" visible when there is no on-now card (the break).
+function classPill(c, nowMs, hotNum, feedNum, pinNum, nextNum){
   if (isDone(c)) return null;
   const ps = c.ps == null ? null : c.ps;
   const pe = c.pe == null ? null : c.pe;
@@ -605,10 +608,15 @@ function classPill(c, nowMs, hotNum, feedNum){
     if (c.n === feedNum)
       return {tag:"cnow", text: pe != null && pe * 1000 > nowMs
         ? "on now \u00b7 est " + fmtShowTime(pe) : "on now", title:"", clsNow:true};
+    if (c.n === pinNum)
+      return {tag:"cnow", text:"on now",
+              title:"last class announced by the live feed; the feed is currently down", clsNow:true};
     if (ps != null && ps * 1000 <= nowMs && nowMs < pe * 1000)
       return {tag:"cnow", text:"on now \u00b7 est " + fmtShowTime(pe), title:"", clsNow:true};
     return {tag:"cnow", text:"up next \u00b7 est " + fmtShowTime(ps), title:"", clsNow:true};
   }
+  if (c.n === nextNum && ps != null && ps * 1000 > nowMs)
+    return {tag:"cnow", text:"up next \u00b7 est " + fmtShowTime(ps), title:"", clsNow:false};
   if (isPendingCls(c, nowMs))
     return {tag:"cpend", text:"finalizing", title:"est done " + fmtShowTime(pe) + " (predicted)", clsNow:false};
   return null;
