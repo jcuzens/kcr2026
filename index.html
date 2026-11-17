@@ -112,8 +112,11 @@ main { padding: 12px 14px 60px; max-width: 900px; }
 /* provisional placing from the live feed, shown on the entry row until the
    official placing lands (official always wins — the row then re-renders
    without the marker) */
-.eppl .place .plivedot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--gold); margin-left: 4px; animation: clivepulse 2s ease-in-out infinite; }
-@media (prefers-reduced-motion: reduce) {
+ .eppl .place .plivedot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--gold); margin-left: 4px; animation: clivepulse 2s ease-in-out infinite; }
+ /* feed down: the announced placing stands until the official lands, but
+    the source is no longer live — static dot, no pulse */
+ .eppl .place .plivedot.off { animation: none; }
+ @media (prefers-reduced-motion: reduce) {
   .cls, .cls-entries { transition: none; }
   .erow-new { animation: none; }
   .plivedot { animation: none; }
