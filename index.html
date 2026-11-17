@@ -771,7 +771,7 @@ function renderSchedule(){
       for (const c of vis.slice().sort((a,b)=>parseFloat(a.n)-parseFloat(b.n))){
         const m = matched.includes(c);
         rendered++;
-        sEl.appendChild(makeClass(c, m, hotNum, feedNum, pinNum, nextNum));
+        sEl.appendChild(makeClass(c, m, hotNum, feedNum, pinNum, nextNum, clsDoneStamp));
       }
       body.appendChild(sEl);
     }
@@ -793,7 +793,7 @@ function renderSchedule(){
 }
 function namesDisp(key,k){ const m = NAMES[key] && NAMES[key][k]; return m ? m.d : k; }
 
-function makeClass(c, isMatch, hotNum, feedNum, pinNum, nextNum){
+function makeClass(c, isMatch, hotNum, feedNum, pinNum, nextNum, clsDoneStamp){
   const isHot = c.n === hotNum;
   const on = active();
   const scr = new Set(c.sc || []);
@@ -844,7 +844,7 @@ function makeClass(c, isMatch, hotNum, feedNum, pinNum, nextNum){
   head.appendChild(el("span","cname", c.name));
   const meta = el("span","cmeta");
   if (isDone(c)) meta.appendChild(el("span","cdone","done ✓"));
-  const pill = classPill(c, Date.now(), hotNum, feedNum, pinNum, nextNum);
+  const pill = classPill(c, Date.now(), hotNum, feedNum, pinNum, nextNum, clsDoneStamp);
   if (pill){
     const p = el("span", pill.tag, pill.text);
     if (pill.title) p.title = pill.title;
@@ -1173,6 +1173,7 @@ function refreshStatus(){
   const f = (DATA && DATA.feed) || {};
   const feedNum = (f.up === true && f.cls != null) ? String(f.cls) : null;
   const pinNum = (f.up !== true && f.cls != null) ? String(f.cls) : null;
+  const clsDoneStamp = (f.cls != null && f.clsdone != null) ? f.clsdone : null;
   const hot = hotClass(DATA.classes, nowMs);
   const hotNum = hot ? hot.n : null;
   const nextNum = nextClsNum(DATA.classes, nowMs);
