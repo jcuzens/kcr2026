@@ -123,8 +123,12 @@ main { padding: 12px 14px 60px; max-width: 900px; }
 }
 .cls-head { width: 100%; display: grid; grid-template-columns: auto 1fr auto; align-items: baseline; column-gap: 8px; row-gap: 7px; padding: 10px 12px; border: none; background: var(--surface); font: inherit; color: var(--ink); text-align: left; cursor: pointer; }
 .cls-head:active { background: var(--accent-soft); }
-.cnum { font-weight: 700; color: var(--accent); flex: none; font-size: 13.5px; min-width: 34px; grid-column: 1; grid-row: 1; }
-.cname { flex: 1; font-weight: 600; min-width: 0; grid-column: 2; grid-row: 1; }
+/* class number: a labeled chip (accent-soft badge) so the card header reads
+   as a distinct unit; entry-row numbers stay plain muted text */
+.cnum { font-weight: 700; color: var(--accent); flex: none; font-size: 13.5px; min-width: 0; padding: 1px 7px; background: var(--accent-soft); border: 1px solid var(--chip-border); border-radius: 6px; grid-column: 1; grid-row: 1; }
+/* class name: one typographic step above the entry rows (horse names are
+   13.5px/600) so the title doesn't blend with the entry list */
+.cname { flex: 1; font-weight: 700; min-width: 0; grid-column: 2; grid-row: 1; }
 .cmeta { grid-column: 1 / -1; grid-row: 2; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .cmeta:empty { display: none; }
 .cdone { color: var(--done-ink); background: var(--done-tint); border: 1px solid var(--done-tint-border); border-radius: 6px; font-size: 11px; padding: 1px 6px; flex: none; }
