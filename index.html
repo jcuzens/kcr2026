@@ -1005,10 +1005,7 @@ function toast(msg, ms){ const t=$("#toast"); t.textContent=msg; t.classList.add
 const POLL_MS = (typeof window.__POLL_MS === "number") ? window.__POLL_MS : 10000;
 const pollingActive = typeof fetch === "function" && location.protocol.indexOf("http") === 0;
 const FEED_BASE = (SHOW && SHOW.feed && SHOW.feed.feed_url) ? String(SHOW.feed.feed_url) : "";
-// 5 s per source: a cold mobile radio (venue cellular/Wi-Fi, a tab waking
-// from OS freeze) can take > 3 s to establish the first fetch, and 3
-// consecutive failed 10 s cycles is all it takes to paint "not updating".
-const FETCH_TIMEOUT_MS = 5000;
+const FETCH_TIMEOUT_MS = 3000;
 // [base, bust, trusted]: the fast feed first (stable URL, trusted/freshest),
 // then the same-origin GH copy (cache-busted, the legacy known-good path).
 const SOURCES = (FEED_BASE ? [{base: FEED_BASE, bust: false, trusted: true}] : [])
@@ -1103,17 +1100,7 @@ document.addEventListener("focusout", flushPending);
 document.addEventListener("visibilitychange", () => {
   clearTimeout(tickTimer);
   if (document.hidden) { clearTimeout(pollTimer); }
-  else {
-    clearTimeout(pollTimer);
-    poll();
-    // resume from a frozen tab (mobile OS suspends background tabs): the
-    // cold radio may fail the first fetch while the connection comes up —
-    // one more attempt shortly after. pollInFlight makes this a no-op while
-    // the first is still running; if the first succeeded it is a 47-byte
-    // no-op check.
-    setTimeout(poll, 2000);
-    scheduleTick();
-  }
+  else { clearTimeout(pollTimer); poll(); scheduleTick(); }
 });
 function srcUrl(src, file){
   const path = (src.base ? src.base.replace(/\/+$/, "") + "/" : "") + file;
@@ -1234,7 +1221,7 @@ resyncPush();
 if (src) toast("Restored your selection");
 if (pollingActive) {
   ringReset();
-  poll();   // first check now, not after a full cycle (mobile cold start)
+  pollTimer = setTimeout(poll, POLL_MS);
 } else {
   const ring = document.querySelector(".ring");
   if (ring) ring.remove();
