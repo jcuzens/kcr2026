@@ -1103,7 +1103,17 @@ document.addEventListener("focusout", flushPending);
 document.addEventListener("visibilitychange", () => {
   clearTimeout(tickTimer);
   if (document.hidden) { clearTimeout(pollTimer); }
-  else { clearTimeout(pollTimer); poll(); scheduleTick(); }
+  else {
+    clearTimeout(pollTimer);
+    poll();
+    // resume from a frozen tab (mobile OS suspends background tabs): the
+    // cold radio may fail the first fetch while the connection comes up —
+    // one more attempt shortly after. pollInFlight makes this a no-op while
+    // the first is still running; if the first succeeded it is a 47-byte
+    // no-op check.
+    setTimeout(poll, 2000);
+    scheduleTick();
+  }
 });
 function srcUrl(src, file){
   const path = (src.base ? src.base.replace(/\/+$/, "") + "/" : "") + file;
@@ -1224,7 +1234,7 @@ resyncPush();
 if (src) toast("Restored your selection");
 if (pollingActive) {
   ringReset();
-  pollTimer = setTimeout(poll, POLL_MS);
+  poll();   // first check now, not after a full cycle (mobile cold start)
 } else {
   const ring = document.querySelector(".ring");
   if (ring) ring.remove();
