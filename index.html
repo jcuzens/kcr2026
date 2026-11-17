@@ -799,11 +799,14 @@ function namesDisp(key,k){ const m = NAMES[key] && NAMES[key][k]; return m ? m.d
 function makeClass(c, isMatch, hotNum, feedNum, pinNum, nextNum, clsDoneStamp){
   const on = active();
   const scr = new Set(c.sc || []);
-  // provisional placings from the live feed, by entry number (feed up only;
-  // any class with announced places — not just the current one). Official
-  // placings (e[6]) always win; these paint unplaced rows in the meantime.
+  // provisional placings from the live feed, by entry number (any class with
+  // announced places — not just the current one). Official placings (e[6])
+  // always win; these paint unplaced rows until the official lands. They
+  // stand while the feed is down too (a static dot — the source is no
+  // longer live) so the session's last classes keep their announced
+  // placings through the break until the officials publish.
   const feed = (DATA && DATA.feed) || {};
-  const provRes = (feed.up === true && feed.res && feed.res[c.n]) ? feed.res[c.n] : null;
+  const provRes = (feed.res && feed.res[c.n]) ? feed.res[c.n] : null;
   const provByEntry = {};
   if (provRes) for (const p in provRes) provByEntry[provRes[p][0]] = p;
   const visE = on ? c.e.filter(eMatches) : c.e;
