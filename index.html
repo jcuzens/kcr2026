@@ -1172,7 +1172,6 @@ function markHealthy(){
   setUpdatedLine(DATA.asof, false);
 }
 async function poll(){
-  flushPending();
   if (pollInFlight) return;
   pollInFlight = true;
   try {
