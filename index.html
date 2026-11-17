@@ -569,14 +569,27 @@ function isPendingCls(c, nowMs){
 }
 // The page's "on now" class: the live feed's announced class when the feed
 // is up and the class is in the payload and not done (official placings
-// always win); the predicted walk otherwise.
+// always win); while the feed is down the last announced class is pinned as
+// "on now" only while it is not settled (a transient mid-session feed-down —
+// the arena is probably still on it). Once it is settled (session over, on
+// break) or there is no announced class, there is NO predicted "on now":
+// the walk only marches the est pills, it never advances the card.
 function hotClass(classes, nowMs){
   const f = (DATA && DATA.feed) || {};
-  if (f.up === true && f.cls != null){
+  if (f.cls != null){
     const c = classes.find(x => x.n === String(f.cls));
     if (c && !isDone(c)) return c;
   }
-  return upNextCls(classes, nowMs);
+  if (f.up === true) return upNextCls(classes, nowMs);
+  return null;
+}
+// The first unsettled class with a future predicted start (display order):
+// carries the "up next · est" pill when the feed is down and there is no
+// on-now card.
+function nextClsNum(classes, nowMs){
+  for (const c of displayOrderOf(classes))
+    if (!isDone(c) && c.ps != null && c.ps * 1000 > nowMs) return c.n;
+  return null;
 }
 function fmtShowTime(epochSec){ return fmtClock(epochSec * 1000); }
 // {tag, text, title, clsNow} for a card's predicted-status pill; null when
