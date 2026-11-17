@@ -647,9 +647,10 @@ function classPill(c, nowMs, hotNum, feedNum, pinNum, nextNum, clsDoneStamp, sta
       return {tag:"cnow", text:"on now \u00b7 est " + fmtShowTime(pe), title:"", clsNow:true};
     return {tag:"cnow", text:"up next \u00b7 est " + fmtShowTime(ps), title:"", clsNow:true};
   }
-  if (clsDoneStamp == null && c.n === nextNum && ps != null && ps * 1000 > nowMs)
+  const quiet = clsDoneStamp != null || stale;
+  if (!quiet && c.n === nextNum && ps != null && ps * 1000 > nowMs)
     return {tag:"cnow", text:"up next \u00b7 est " + fmtShowTime(ps), title:"", clsNow:false};
-  if (clsDoneStamp == null && isPendingCls(c, nowMs))
+  if (!quiet && isPendingCls(c, nowMs))
     return {tag:"cpend", text:"finalizing", title:"est done " + fmtShowTime(pe) + " (predicted)", clsNow:false};
   return null;
 }
