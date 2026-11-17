@@ -794,7 +794,6 @@ function renderSchedule(){
 function namesDisp(key,k){ const m = NAMES[key] && NAMES[key][k]; return m ? m.d : k; }
 
 function makeClass(c, isMatch, hotNum, feedNum, pinNum, nextNum, clsDoneStamp){
-  const isHot = c.n === hotNum;
   const on = active();
   const scr = new Set(c.sc || []);
   // provisional placings from the live feed, by entry number (feed up only;
