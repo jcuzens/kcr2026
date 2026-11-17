@@ -719,8 +719,10 @@ function renderSchedule(){
   const nowMs = Date.now();
   const f = (DATA && DATA.feed) || {};
   const feedNum = (f.up === true && f.cls != null) ? String(f.cls) : null;
+  const pinNum = (f.up !== true && f.cls != null) ? String(f.cls) : null;
   const hot = hotClass(DATA.classes, nowMs);
   const hotNum = hot ? hot.n : null;
+  const nextNum = nextClsNum(DATA.classes, nowMs);
   let rendered = 0;
   for (const d of days){
     const secs = [...d.sessions.entries()].sort((a,b)=>(PER_ORDER[a[0]]??9)-(PER_ORDER[b[0]]??9));
