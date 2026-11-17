@@ -1128,7 +1128,6 @@ function safeApply(p){
     DATA = keepData; liveRaw = keepRaw;
   }
 }
-document.addEventListener("focusout", flushPending);
 document.addEventListener("visibilitychange", () => {
   clearTimeout(tickTimer);
   if (document.hidden) { clearTimeout(pollTimer); }
