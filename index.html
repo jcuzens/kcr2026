@@ -884,7 +884,7 @@ function makeClass(c, isMatch, hotNum, feedNum, pinNum, nextNum, clsDoneStamp){
     }
   };
   const pill = classPill(c, Date.now(), hotNum, feedNum, pinNum, nextNum,
-                         clsDoneStamp, feedStale(feed, Date.now()));
+                         clsDoneStamp, feedStale(feed, Date.now()), provRes);
   // the card's 'now' highlight follows the pill (a settled announced class
   // is 'finalizing' — hot but not on now)
   const isHot = c.n === hotNum && !!(pill && pill.clsNow);
