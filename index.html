@@ -760,7 +760,7 @@ function renderSchedule(){
       for (const c of vis.slice().sort((a,b)=>parseFloat(a.n)-parseFloat(b.n))){
         const m = matched.includes(c);
         rendered++;
-        sEl.appendChild(makeClass(c, m, hotNum, feedNum));
+        sEl.appendChild(makeClass(c, m, hotNum, feedNum, pinNum, nextNum));
       }
       body.appendChild(sEl);
     }
