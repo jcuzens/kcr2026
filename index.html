@@ -1161,13 +1161,15 @@ function refreshStatus(){
   const nowMs = Date.now();
   const f = (DATA && DATA.feed) || {};
   const feedNum = (f.up === true && f.cls != null) ? String(f.cls) : null;
+  const pinNum = (f.up !== true && f.cls != null) ? String(f.cls) : null;
   const hot = hotClass(DATA.classes, nowMs);
   const hotNum = hot ? hot.n : null;
+  const nextNum = nextClsNum(DATA.classes, nowMs);
   const byNum = new Map(DATA.classes.map(c => [c.n, c]));
   for (const card of document.querySelectorAll("#schedule .cls")){
     const c = byNum.get(card.dataset.num);
     if (!c) continue;
-    const want = classPill(c, nowMs, hotNum, feedNum);
+    const want = classPill(c, nowMs, hotNum, feedNum, pinNum, nextNum);
     const wantNow = !!(want && want.clsNow);
     if (card.classList.contains("now") !== wantNow) card.classList.toggle("now", wantNow);
     const cur = card.querySelector(".cnow, .cpend");
