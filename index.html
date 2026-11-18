@@ -703,9 +703,20 @@ function classPill(c, nowMs, hotNum, feedNum, pinNum, nextNum, clsDoneStamp, sta
     return {tag:"cnow", text:"up next \u00b7 est " + fmtShowTime(ps), title:"", clsNow:true};
   }
   const quiet = clsDoneStamp != null || stale;
-  if (!quiet && c.n === nextNum && ps != null && ps * 1000 > nowMs)
-    return {tag:"cnow", text:"up next \u00b7 est " + fmtShowTime(ps), title:"", clsNow:false};
-  if (!quiet && isPendingCls(c, nowMs))
+  if (!quiet && c.n === nextNum){
+    if (ps != null && ps * 1000 > nowMs)
+      return {tag:"cnow", text:"up next \u00b7 est " + fmtShowTime(ps), title:"", clsNow:false};
+    if (gtCls)
+      // ground-truth up-next whose predicted start already passed: the walk
+      // ran ahead of a slow class — bare "up next", no stale est (the hot
+      // class keeps the same rule)
+      return {tag:"cnow", text:"up next", title:"", clsNow:false};
+  }
+  // while ground truth holds, a class AFTER the announced one is never
+  // "predicted finalizing": a past window there is walk drift (2026-11-18),
+  // not ground truth. A class BEFORE it may have run unobserved — the pill
+  // stands.
+  if (!quiet && isPendingCls(c, nowMs) && !clsAfter(c, gtCls))
     return {tag:"cpend", text:"finalizing", title:"est done " + fmtShowTime(pe) + " (predicted)", clsNow:false};
   // a stale break: a class the feed already read results for (official
   // placing not in the payload yet) is finalizing — the est walk is not
