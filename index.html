@@ -623,6 +623,37 @@ function feedStale(f, nowMs){
   if (typeof f.at_s !== "number") return false;
   return nowMs - f.at_s * 1000 > ANCHOR_STALE_MS;
 }
+// Is class c later in the show than class g (day -> session -> number)?
+function clsAfter(c, g){
+  if (!c || !g) return false;
+  const dn = d => parseInt((d || "").slice(-2), 10) || 0;
+  const po = p => (PER_ORDER[p] ?? 9);
+  const a = dn(c.day), b = dn(g.day);
+  if (a !== b) return a > b;
+  const pa = po(c.per), pb = po(g.per);
+  if (pa !== pb) return pa > pb;
+  return parseFloat(c.n) > parseFloat(g.n);
+}
+// up-next while ground truth holds: the first UNSETTLED class after the
+// announced class in schedule order. Classes are never skipped, so the
+// walk's "first future start" must not re-target the pill when the walk
+// runs ahead of a slow class (2026-11-18: a 10-min model for a 45-min
+// equitation class left "up next" two classes ahead and painted the
+// skipped classes "finalizing (predicted)").
+function gtNextOf(classes, g){
+  for (const c of displayOrderOf(classes))
+    if (clsAfter(c, g) && !isDone(c)) return c;
+  return null;
+}
+// The pill gates' ground truth: the announced class while the anchor is
+// fresh (feed up, or feed down within one pace interval) and not a
+// session-over clsold anchor — otherwise null (the pure walk stands).
+function gtClassOf(classes, nowMs){
+  const f = (DATA && DATA.feed) || {};
+  if (f.cls == null) return null;
+  if (feedStale(f, nowMs) || f.clsold === true) return null;
+  return classes.find(c => c.n === String(f.cls)) || null;
+}
 // {tag, text, title, clsNow} for a card's predicted-status pill; null when
 // the card has none (done classes, or a future class outside its window).
 // The hot class from the feed (feedNum) is "on now" by ground truth: the
