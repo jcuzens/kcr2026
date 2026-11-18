@@ -1112,6 +1112,10 @@ function renderFeedLine(){
   box.appendChild(el("span", "fdot"));
   box.appendChild(el("span", "flab", "Live feed: " + (up ? "up" : "down")));
   if (!up) return;
+  // A session-over anchor (clsold) carries the finished session's stale
+  // session fields (2026-11-18: an ad's 'Walk' became the kept anchor
+  // class's gait) — show only the liveness, not the stale chips.
+  if (f.clsold === true) return;
   if (f.cls != null) box.appendChild(el("span", "fchip", "class " + f.cls));
   if (f.gait) box.appendChild(el("span", "fchip", f.gait));
   if (f.dir) box.appendChild(el("span", "fchip", f.dir));
