@@ -583,6 +583,15 @@ function isPendingCls(c, nowMs){
 // the walk only marches the est pills, it never advances the card.
 function hotClass(classes, nowMs){
   const f = (DATA && DATA.feed) || {};
+  // A session-over anchor (clsold: the ingest source dropped and no class
+  // call / advance has re-anchored since) is not ground truth — the last
+  // announced class's session is over and no class is on (2026-11-18: the
+  // 11AM airing's pre-session bumpers came up while the 09:47:36 class-71
+  // anchor was still the last call — finished 71 painted 'on now', with an
+  // ad line's 'Walk' as its gait). No on-now card, and no est 'up next' hot
+  // card either: the est walk is a one-shot extrapolation from a finished
+  // session until the next call re-anchors.
+  if (f.clsold === true) return null;
   if (f.cls != null){
     const c = classes.find(x => x.n === String(f.cls));
     if (c && !isDone(c)) return c;
