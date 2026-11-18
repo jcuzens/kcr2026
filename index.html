@@ -1329,7 +1329,9 @@ function refreshStatus(){
   const clsDoneStamp = (f.cls != null && f.clsdone != null) ? f.clsdone : null;
   const hot = hotClass(DATA.classes, nowMs);
   const hotNum = hot ? hot.n : null;
-  const nextNum = nextClsNum(DATA.classes, nowMs);
+  const gtCls = gtClassOf(DATA.classes, nowMs);
+  const gtNext = gtCls ? gtNextOf(DATA.classes, gtCls) : null;
+  const nextNum = gtNext ? gtNext.n : nextClsNum(DATA.classes, nowMs);
   const byNum = new Map(DATA.classes.map(c => [c.n, c]));
   for (const card of document.querySelectorAll("#schedule .cls")){
     const c = byNum.get(card.dataset.num);
@@ -1337,7 +1339,7 @@ function refreshStatus(){
     const want = classPill(c, nowMs, hotNum, feedNum, pinNum, nextNum,
                            clsDoneStamp,
                            feedStale(f, nowMs) || f.clsold === true,
-                           (f.res && f.res[c.n]) || null);
+                           (f.res && f.res[c.n]) || null, gtCls);
     const wantNow = !!(want && want.clsNow);
     if (card.classList.contains("now") !== wantNow) card.classList.toggle("now", wantNow);
     const cur = card.querySelector(".cnow, .cpend");
