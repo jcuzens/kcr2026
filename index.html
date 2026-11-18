@@ -897,7 +897,9 @@ function makeClass(c, isMatch, hotNum, feedNum, pinNum, nextNum, clsDoneStamp){
     }
   };
   const pill = classPill(c, Date.now(), hotNum, feedNum, pinNum, nextNum,
-                         clsDoneStamp, feedStale(feed, Date.now()), provRes);
+                         clsDoneStamp,
+                         feedStale(feed, Date.now()) || feed.clsold === true,
+                         provRes);
   // the card's 'now' highlight follows the pill (a settled announced class
   // is 'finalizing' — hot but not on now)
   const isHot = c.n === hotNum && !!(pill && pill.clsNow);
@@ -1283,7 +1285,8 @@ function refreshStatus(){
     const c = byNum.get(card.dataset.num);
     if (!c) continue;
     const want = classPill(c, nowMs, hotNum, feedNum, pinNum, nextNum,
-                           clsDoneStamp, feedStale(f, nowMs),
+                           clsDoneStamp,
+                           feedStale(f, nowMs) || f.clsold === true,
                            (f.res && f.res[c.n]) || null);
     const wantNow = !!(want && want.clsNow);
     if (card.classList.contains("now") !== wantNow) card.classList.toggle("now", wantNow);
