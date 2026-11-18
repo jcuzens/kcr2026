@@ -677,7 +677,7 @@ function gtClassOf(classes, nowMs){
 // (2026-11-17: 54 — the session music came 10 min after its 13:30:44 call,
 // before its results were read) is NOT 'finalizing' — it never was. nextNum
 // keeps an "up next · est" visible while the session is live.
-function classPill(c, nowMs, hotNum, feedNum, pinNum, nextNum, clsDoneStamp, stale, provRes){
+function classPill(c, nowMs, hotNum, feedNum, pinNum, nextNum, clsDoneStamp, stale, provRes, gtCls){
   if (isDone(c)) return null;
   const ps = c.ps == null ? null : c.ps;
   const pe = c.pe == null ? null : c.pe;
