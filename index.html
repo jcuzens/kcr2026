@@ -827,7 +827,11 @@ function renderSchedule(){
   const clsDoneStamp = (f.cls != null && f.clsdone != null) ? f.clsdone : null;
   const hot = hotClass(DATA.classes, nowMs);
   const hotNum = hot ? hot.n : null;
-  const nextNum = nextClsNum(DATA.classes, nowMs);
+  // ground truth (fresh anchor): up-next is the schedule-next class after
+  // the announced one, never a walk skip (see gtNextOf)
+  const gtCls = gtClassOf(DATA.classes, nowMs);
+  const gtNext = gtCls ? gtNextOf(DATA.classes, gtCls) : null;
+  const nextNum = gtNext ? gtNext.n : nextClsNum(DATA.classes, nowMs);
   let rendered = 0;
   for (const d of days){
     const secs = [...d.sessions.entries()].sort((a,b)=>(PER_ORDER[a[0]]??9)-(PER_ORDER[b[0]]??9));
@@ -868,7 +872,7 @@ function renderSchedule(){
       for (const c of vis.slice().sort((a,b)=>parseFloat(a.n)-parseFloat(b.n))){
         const m = matched.includes(c);
         rendered++;
-        sEl.appendChild(makeClass(c, m, hotNum, feedNum, pinNum, nextNum, clsDoneStamp));
+        sEl.appendChild(makeClass(c, m, hotNum, feedNum, pinNum, nextNum, clsDoneStamp, gtCls));
       }
       body.appendChild(sEl);
     }
@@ -890,7 +894,7 @@ function renderSchedule(){
 }
 function namesDisp(key,k){ const m = NAMES[key] && NAMES[key][k]; return m ? m.d : k; }
 
-function makeClass(c, isMatch, hotNum, feedNum, pinNum, nextNum, clsDoneStamp){
+function makeClass(c, isMatch, hotNum, feedNum, pinNum, nextNum, clsDoneStamp, gtCls){
   const on = active();
   const scr = new Set(c.sc || []);
   // provisional placings from the live feed, by entry number (any class with
