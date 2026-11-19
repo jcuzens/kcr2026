@@ -1010,6 +1010,13 @@ function makeClass(c, isMatch, hotNum, feedNum, pinNum, nextNum, clsDoneStamp, g
     bl.addEventListener("click", ev => { ev.stopPropagation(); togglePush(c); });
     meta.appendChild(bl);
   }
+  if (c.card){
+    const sc = el("span","cscore");
+    sc.innerHTML = SCORE_SVG + "<span>scores</span>";
+    sc.title = "Scorecard for class " + c.n;
+    sc.addEventListener("click", ev => { ev.stopPropagation(); openScoreCard(c.n); });
+    meta.appendChild(sc);
+  }
   meta.appendChild(el("span","cdiv", c.div));
   const call = canToggle ? el("span","call") : null;
   if (call) meta.appendChild(call);
