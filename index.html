@@ -1401,6 +1401,116 @@ function scheduleTick(){
   }, TICK_MS);
 }
 
+// ---- scorecard modal (scores.json, the 6th artifact) ----
+// The payload carries only a sparse per-class "card" flag; the CONTENT is
+// fetched once per page load, on the first chip click (cached in memory —
+// scores.json is static and republished only when a scorecard changes), so
+// the cost is paid only when someone looks. Judge cells show the PLACING
+// each judge gave; the raw entry numbers sit in the tooltips.
+const SCORE_SVG = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h4"/></svg>';
+const SCORE_TIMEOUT_MS = (typeof window.__SCORE_TIMEOUT_MS === "number") ? window.__SCORE_TIMEOUT_MS : 15000;
+let scoresDocCache = null, scoresFetchInFlight = null, scoreFocusPrev = null;
+function scoresDocPromise(){
+  if (scoresDocCache) return Promise.resolve(scoresDocCache);
+  if (!scoresFetchInFlight){
+    scoresFetchInFlight = fetch("scores.json", { cache: "no-store" }).then(r => {
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return r.json();
+    }).then(doc => { scoresDocCache = doc; scoresFetchInFlight = null; return doc; })
+     .catch(e => { scoresFetchInFlight = null; throw e; });
+  }
+  return scoresFetchInFlight;
+}
+function openScoreCard(clsNum){
+  const modal = document.getElementById("scoreModal");
+  const title = modal.querySelector(".scoretitle");
+  const body = modal.querySelector(".scorebody");
+  title.textContent = "Class " + clsNum + " \u2014 scorecard";
+  body.textContent = "";
+  const spin = el("div","scspun");
+  body.appendChild(spin);   // loading until the doc lands (or times out)
+  modal.hidden = false;
+  scoreFocusPrev = document.activeElement;
+  modal.querySelector(".scoreclose").focus();
+  const timed = new Promise((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error("timed out")), SCORE_TIMEOUT_MS);
+    scoresDocPromise().then(
+      v => { clearTimeout(t); resolve(v); },
+      e => { clearTimeout(t); reject(e); });
+  });
+  timed.then(doc => {
+    if (modal.hidden) return;
+    spin.remove();
+    const blk = (doc.classes || {})[clsNum];
+    if (!blk){
+      body.appendChild(el("div","scmsg","No scorecard for class " + clsNum + " yet."));
+      return;
+    }
+    if (!blk.rows.length){
+      body.appendChild(el("div","scmsg","Scores for class " + clsNum + " not posted yet."));
+      return;
+    }
+    title.textContent = blk.name;
+    if (doc.asof) title.appendChild(el("span","scoresub","Scorecard as of " + doc.asof));
+    body.appendChild(scoreTable(blk));
+  }).catch(err => {
+    if (modal.hidden) return;
+    spin.remove();
+    body.appendChild(el("div","scmsg screrr","Couldn't load the scorecard" +
+      (err && err.message ? " (" + err.message + ")" : "") + "."));
+    const retry = el("button","scrbtn","Try again");
+    retry.addEventListener("click", () => openScoreCard(clsNum));
+    body.appendChild(retry);
+  });
+}
+function scoreTable(blk){
+  const tbl = el("table","scrtbl");
+  const thead = el("thead");
+  const hr = el("tr");
+  hr.appendChild(el("th","scmid","PL"));
+  hr.appendChild(el("th","","Horse"));
+  for (const j of (blk.judges || [])) hr.appendChild(el("th","scmid", j));
+  thead.appendChild(hr);
+  tbl.appendChild(thead);
+  const tb = el("tbody");
+  for (const r of (blk.rows || [])){
+    const tr = el("tr");
+    tr.appendChild(el("td","scmid scpl", r.pl == null ? "\u2014" : String(r.pl)));
+    const hc = el("td");
+    hc.appendChild(document.createTextNode(r.horse || "\u2014"));
+    if (r.num) hc.appendChild(el("span","scnum"," #" + r.num));
+    tr.appendChild(hc);
+    for (let j = 0; j < (blk.judges || []).length; j++){
+      const td = el("td","scmid");
+      const p = r.p ? r.p[j] : null, s = r.s ? r.s[j] : null;
+      if (p == null){
+        td.textContent = "\u2014";
+      } else {
+        td.className += " scrjudge";
+        td.textContent = p + placeSuf(p);
+        if (s != null) td.title = "wearing " + s;
+      }
+      tr.appendChild(td);
+    }
+    tb.appendChild(tr);
+  }
+  tbl.appendChild(tb);
+  return tbl;
+}
+function closeScoreCard(){
+  const modal = document.getElementById("scoreModal");
+  if (modal.hidden) return;
+  modal.hidden = true;
+  if (scoreFocusPrev && typeof scoreFocusPrev.focus === "function") scoreFocusPrev.focus();
+  scoreFocusPrev = null;
+}
+(function(){
+  const modal = document.getElementById("scoreModal");
+  modal.querySelector(".scoreclose").addEventListener("click", closeScoreCard);
+  modal.addEventListener("click", ev => { if (ev.target === modal) closeScoreCard(); });
+  document.addEventListener("keydown", ev => { if (ev.key === "Escape" && !modal.hidden) closeScoreCard(); });
+})();
+
 // ---- init
 const src = load();
 renderFilters();
