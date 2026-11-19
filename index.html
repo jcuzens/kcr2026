@@ -1479,7 +1479,10 @@ function openScoreCard(clsNum){
     // table for it) is stale by definition. Drop it and fetch once more
     // before claiming the scorecard is unavailable. A FRESH doc that lacks
     // the class is the server's truth — show the message, don't loop.
-    if (wasCached) return fetchTimed().then(render);
+    if (wasCached){
+      scoresDocCache = null;   // drop the stale doc, then fetch the current one
+      return fetchTimed().then(render);
+    }
     return render(doc);
   }).catch(fail);
 }
