@@ -1500,9 +1500,17 @@ function scoreTable(blk){
 function closeScoreCard(){
   const modal = document.getElementById("scoreModal");
   if (modal.hidden) return;
-  modal.hidden = true;
-  if (scoreFocusPrev && typeof scoreFocusPrev.focus === "function") scoreFocusPrev.focus();
+  const prev = scoreFocusPrev;
   scoreFocusPrev = null;
+  modal.hidden = true;
+  if (prev && prev !== document.body && typeof prev.focus === "function") prev.focus();
+  else {
+    // The browser auto-blurs the now-hidden close button (focus falls back to
+    // body); a jsdom-style engine keeps it, so blur it explicitly and focus
+    // returns to where it was before the modal opened.
+    const ae = document.activeElement;
+    if (ae && ae !== document.body && typeof ae.blur === "function") ae.blur();
+  }
 }
 (function(){
   const modal = document.getElementById("scoreModal");
