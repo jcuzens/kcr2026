@@ -1247,11 +1247,6 @@ function applyDataUpdate(p){
     else if (fe.matches("#filters .clearx"))
       focusKey = "clearx:" + [...document.querySelectorAll("#filters .clearx")].indexOf(fe);
   }
-  // A new payload may carry new/changed scorecard flags (the flag rides the
-  // classes JSON — derived from scores.json in the same build and published
-  // in the same commit): a cached scores.json is stale by definition, so
-  // drop it and let the next click fetch the one the payload was built with.
-  if (p.h !== DATA.h) scoresDocCache = null;
   DATA = p;
   buildIndexes();
   renderFilters();
