@@ -143,9 +143,11 @@ main { padding: 12px 14px 60px; max-width: 900px; }
 .cbell:active { background: var(--accent-soft); }
 .cbell.on { background: #f59e0b; border-color: #f59e0b; color: #fff; font-weight: 600; }
 .cbell.on .ic-bellbody { fill: currentColor; }
-.cscore { color: var(--muted); border: 1px solid var(--line); background: var(--surface); border-radius: 6px; display: inline-flex; align-items: center; gap: 3px; padding: 1px 6px; flex: none; cursor: pointer; font-size: 11px; }
+/* dark rose-red so the chip reads as its own thing (muted gray blended into
+   the row next to the bell) */
+.cscore { color: var(--card); border: 1px solid var(--card-border); background: var(--card-soft); border-radius: 6px; display: inline-flex; align-items: center; gap: 3px; padding: 1px 6px; flex: none; cursor: pointer; font-size: 11px; font-weight: 600; }
 .cscore svg { display: block; }
-.cscore:active { background: var(--accent-soft); }
+.cscore:active { background: var(--card-press); }
 #scoreModal { position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.45); padding: 16px; }
 #scoreModal[hidden] { display: none; }
 .scorecard { background: var(--surface); color: var(--ink); border: 1px solid var(--line); border-radius: 10px; width: 100%; max-width: 560px; max-height: 85vh; display: flex; flex-direction: column; box-shadow: 0 12px 40px rgba(0,0,0,.25); }
