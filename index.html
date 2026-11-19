@@ -1437,13 +1437,13 @@ function openScoreCard(clsNum){
   modal.hidden = false;
   scoreFocusPrev = document.activeElement;
   modal.querySelector(".scoreclose").focus();
-  const timed = new Promise((resolve, reject) => {
+  const fetchTimed = () => new Promise((resolve, reject) => {
     const t = setTimeout(() => reject(new Error("timed out")), SCORE_TIMEOUT_MS);
     scoresDocPromise().then(
       v => { clearTimeout(t); resolve(v); },
       e => { clearTimeout(t); reject(e); });
   });
-  timed.then(doc => {
+  const render = (doc) => {
     if (modal.hidden) return;
     spin.remove();
     const blk = (doc.classes || {})[clsNum];
@@ -1458,7 +1458,8 @@ function openScoreCard(clsNum){
     title.textContent = blk.name;
     if (doc.asof) title.appendChild(el("span","scoresub","Scorecard as of " + doc.asof));
     body.appendChild(scoreTable(blk));
-  }).catch(err => {
+  };
+  const fail = (err) => {
     if (modal.hidden) return;
     spin.remove();
     body.appendChild(el("div","scmsg screrr","Couldn't load the scorecard" +
@@ -1466,7 +1467,21 @@ function openScoreCard(clsNum){
     const retry = el("button","scrbtn","Try again");
     retry.addEventListener("click", () => openScoreCard(clsNum));
     body.appendChild(retry);
-  });
+  };
+  const wasCached = !!scoresDocCache;
+  fetchTimed().then(doc => {
+    const blk = (doc.classes || {})[clsNum];
+    if (blk && blk.rows.length) return render(doc);
+    if (modal.hidden) return;
+    // The chip only exists when the payload carries the card flag, and the
+    // flag is derived from scores.json in the same build (published in the
+    // same commit): a cached doc that lacks this class (or has an empty
+    // table for it) is stale by definition. Drop it and fetch once more
+    // before claiming the scorecard is unavailable. A FRESH doc that lacks
+    // the class is the server's truth — show the message, don't loop.
+    if (wasCached) return fetchTimed().then(render);
+    return render(doc);
+  }).catch(fail);
 }
 function scoreTable(blk){
   const tbl = el("table","scrtbl");
